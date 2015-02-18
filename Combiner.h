@@ -26,14 +26,13 @@ public:
     void setAlgorithm(std::unique_ptr<EncryptionAlgorithm> alg);
 
 private:
-    FileStructure createFileStructure(const QString &path);
+    FileStructure createFileStructure(const QString &path, int &numberOfFiles);
     QByteArray getBlock(const size_t &size);
     void openCurrentFile();
     std::unique_ptr<EncryptionAlgorithm> algorithm;
     std::unique_ptr<QFile> currentFile;
     FileSystemObject *p_currentFileObject;
     FileSystemObject *p_prevFile;
-    int numberOfFiles;
 
 signals:
     void fileEncrypted();

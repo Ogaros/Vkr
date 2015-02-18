@@ -15,7 +15,7 @@ void Combiner::setAlgorithm(std::unique_ptr<EncryptionAlgorithm> alg)
     this->algorithm.swap(alg);
 }
 
-FileStructure Combiner::createFileStructure(const QString &path)
+FileStructure Combiner::createFileStructure(const QString &path, int &numberOfFiles)
 {
     FileStructure fileStructure;
     char search_path[200];
@@ -33,7 +33,7 @@ FileStructure Combiner::createFileStructure(const QString &path)
                 quint64 size = isFolder ? 0 : (fd.nFileSizeHigh * (MAXDWORD + 1)) + fd.nFileSizeLow;
                 fileStructure.objects.emplace_back(isFolder, path, name, size);
                 if(isFolder)
-                    fileStructure.objects.back().folderContents = createFileStructure(path + name + "\\").objects;
+                    fileStructure.objects.back().folderContents = createFileStructure(path + name + "\\", numberOfFiles).objects;
                 else
                 {
                     numberOfFiles++;
@@ -53,8 +53,8 @@ FileStructure Combiner::createFileStructure(const QString &path)
 void Combiner::combine(const QString &path)
 {
     p_prevFile = nullptr;
-    numberOfFiles = 0;
-    FileStructure fileStructure = createFileStructure(path);
+    int numberOfFiles = 0;
+    FileStructure fileStructure = createFileStructure(path, numberOfFiles);
     emit filesCounted(numberOfFiles);
     p_currentFileObject = fileStructure.firstFile;
     if(p_currentFileObject == nullptr)
