@@ -14,6 +14,7 @@ struct FileObject
     QString name;    
     quint64 size;
     FileObject *nextFile;
+    int test;
 };
 
 #endif // FILESYSTEMOBJECT
