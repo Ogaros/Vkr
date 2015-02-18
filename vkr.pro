@@ -23,10 +23,9 @@ SOURCES += main.cpp\
 HEADERS  += mainwindow.h \
     EncryptionAlgorithm/EncryptionAlgorithm.h \
     Combiner.h \
-    FileSystemObject.h \
-    FileStructure.h \
     XmlSaveLoad.h \
-    progressbardialog.h
+    progressbardialog.h \
+    FileObject.h
 
 FORMS    += mainwindow.ui \
     progressbardialog.ui

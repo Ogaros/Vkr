@@ -10,11 +10,10 @@
 #include <exception>
 #include <windows.h>
 #include <EncryptionAlgorithm/EncryptionAlgorithm.h>
-#include <FileSystemObject.h>
-#include <FileStructure.h>
+#include <FileObject.h>
 #include <XmlSaveLoad.h>
 
-using std::list;
+using FileList = std::list<FileObject>;
 
 class Combiner : public QObject
 {
@@ -26,13 +25,14 @@ public:
     void setAlgorithm(std::unique_ptr<EncryptionAlgorithm> alg);
 
 private:
-    FileStructure createFileStructure(const QString &path, int &numberOfFiles);
-    QByteArray getBlock(const size_t &size);
+    void fillFileList(const QString &path);
+    QByteArray getBlock(const int &size);
     void openCurrentFile();
     std::unique_ptr<EncryptionAlgorithm> algorithm;
     std::unique_ptr<QFile> currentFile;
-    FileSystemObject *p_currentFileObject;
-    FileSystemObject *p_prevFile;
+    FileList fileList;
+    FileList::iterator currentFileIter;
+
 
 signals:
     void fileEncrypted();
