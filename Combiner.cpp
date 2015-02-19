@@ -17,15 +17,17 @@ void Combiner::setAlgorithm(std::unique_ptr<EncryptionAlgorithm> alg)
 
 void Combiner::fillFileList(const QString &path)
 {
-    char search_path[200];
-    sprintf(search_path, "%s*.*", path.toStdString().c_str());
-    WIN32_FIND_DATAA fd;
-    HANDLE hFind = ::FindFirstFileA(search_path, &fd);
+    QString sPath = path + "*.*";
+    WCHAR search_path[sPath.size()+1];
+    sPath.toWCharArray(search_path);
+    search_path[sPath.size()] = '\0';
+    WIN32_FIND_DATA fd;
+    HANDLE hFind = FindFirstFile(search_path, &fd);
     if(hFind != INVALID_HANDLE_VALUE)
     {
         do
         {
-            QString name = fd.cFileName;
+            QString name = QString::fromWCharArray(fd.cFileName);
             if(name != "." && name != "..")
             {
                 if(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -37,8 +39,8 @@ void Combiner::fillFileList(const QString &path)
                 }
             }
         }
-        while(::FindNextFileA(hFind, &fd));
-        ::FindClose(hFind);        
+        while(FindNextFile(hFind, &fd));
+        FindClose(hFind);
     }
 }
 

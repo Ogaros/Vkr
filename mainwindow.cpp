@@ -78,6 +78,7 @@ void MainWindow::encrypt()
     connect(&combiner, SIGNAL(fileEncrypted()), pb, SLOT(addOne()));
     connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
     QtConcurrent::run(&combiner, &Combiner::combine, QString("D:\\Users\\Ogare\\Desktop\\TestFolder\\"));
+    //QtConcurrent::run(&combiner, &Combiner::combine, QString("G:\\"));
 }
 
 void MainWindow::decrypt()
