@@ -75,7 +75,7 @@ void Combiner::combine(const QString &path)
         {
             containerFile.write(block);
         }
-        while(!(block = getBlock(blockSize)).isEmpty());
+        while(!(block = getBlockReverse(blockSize)).isEmpty());
     }
     catch(...){throw;}
     containerFile.flush();
@@ -120,9 +120,55 @@ QByteArray Combiner::getBlock(const int &size)
     return block;
 }
 
+QByteArray Combiner::getBlockReverse(const int &size)
+{
+    QByteArray block;
+    if(currentFile == nullptr)
+    {
+        try {openCurrentFile();}
+        catch(...){throw;}
+    }
+    qint64 fileSize = currentFile->size();
+    if(fileSize < static_cast<qint64>(size))
+    {
+        block = currentFile->read(fileSize);
+        currentFile->remove();
+
+        currentFileIter++;
+        if(currentFileIter != fileList.end())
+        {
+            emit fileEncrypted();
+            try {openCurrentFile();}
+            catch(...){throw;}
+            block.append(getBlockReverse(size - block.size()));
+        }
+        else
+        {
+            currentFileIter--;
+            emit fileEncrypted();
+            if(!block.isEmpty())
+            {
+                block.append(QByteArray(size - block.size(), 0));
+            }
+            else
+            {
+                currentFile.reset(nullptr);
+            }
+        }
+    }
+    else
+    {
+        qint64 newSize = fileSize - static_cast<qint64>(size);
+        currentFile->seek(newSize);
+        block = currentFile->read(fileSize);
+        currentFile->resize(newSize);
+    }
+    return block;
+}
+
 void Combiner::openCurrentFile()
 {
     currentFile.reset(new QFile(currentFileIter->path + currentFileIter->name));
-    if(!currentFile->open(QIODevice::ReadOnly))
+    if(!currentFile->open(QIODevice::ReadWrite))
         throw std::runtime_error("Failed to open file for encryption");
 }

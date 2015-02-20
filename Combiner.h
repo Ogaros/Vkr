@@ -27,6 +27,7 @@ public:
 private:
     void fillFileList(const QString &path);
     QByteArray getBlock(const int &size);
+    QByteArray getBlockReverse(const int &size);
     void openCurrentFile();
     std::unique_ptr<EncryptionAlgorithm> algorithm;
     std::unique_ptr<QFile> currentFile;
