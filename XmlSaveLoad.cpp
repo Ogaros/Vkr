@@ -1,6 +1,6 @@
 #include "XmlSaveLoad.h"
 
-XmlSaveLoad::XmlSaveLoad() : fileName("FileStructure.xml")
+XmlSaveLoad::XmlSaveLoad() : fileName("FileList.xml")
 {
 
 }
@@ -33,4 +33,52 @@ qint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &p
     qint64 size = file.size();
     file.close();
     return size;
+}
+
+void XmlSaveLoad::loadFileListFromXml(FileList &fileList, QFile * const file) const
+{
+    QXmlStreamReader xml(file);
+    while(!xml.atEnd() && !xml.hasError())
+    {
+        QXmlStreamReader::TokenType token = xml.readNext();
+        if(token == QXmlStreamReader::StartDocument)
+            continue;
+        if(token == QXmlStreamReader::StartElement)
+        {
+            if(xml.name() == "FileList")
+                continue;
+            if(xml.name() == "file")
+            {
+                fileList.push_front(parseFile(xml));
+            }
+        }
+    }
+}
+
+FileObject XmlSaveLoad::parseFile(QXmlStreamReader &xml) const
+{
+    QString name, path;
+    qint64 size;
+    QXmlStreamAttributes attributes = xml.attributes();
+    if(attributes.hasAttribute("name"))
+        name = attributes.value("name").toString();
+    xml.readNext();
+    while(xml.tokenType() != QXmlStreamReader::EndElement || xml.name() != "file")
+    {
+        if(xml.tokenType() == QXmlStreamReader::StartElement)
+        {
+            if(xml.name() == "path")
+            {
+                xml.readNext();
+                path = xml.text().toString();
+            }
+            else if(xml.name() == "size")
+            {
+                xml.readNext();
+                size = xml.text().toLongLong();
+            }
+        }
+        xml.readNext();
+    }
+    return FileObject(path, name, size);
 }

@@ -22,17 +22,21 @@ public:
     explicit Combiner(QObject *parent = 0);
     ~Combiner();
     void combine(const QString &path);
+    void combineReverse(const QString &path);
+    void separateReverse(const QString &path);
     void setAlgorithm(std::unique_ptr<EncryptionAlgorithm> alg);
 
 private:
     void fillFileList(const QString &path);
     QByteArray getBlock(const int &size);
     QByteArray getBlockReverse(const int &size);
+    QByteArray getBlockFromContainerReverse(const int &size, QFile &file);
     void openCurrentFile();
     std::unique_ptr<EncryptionAlgorithm> algorithm;
     std::unique_ptr<QFile> currentFile;
     FileList fileList;
     FileList::iterator currentFileIter;
+    const QString containerName;
 
 
 signals:

@@ -15,11 +15,13 @@ class XmlSaveLoad
 public:
     XmlSaveLoad();
     ~XmlSaveLoad();
-    qint64 saveFileListAsXml(const FileList &fileStructure, const QString &path) const;
+    qint64 saveFileListAsXml(const FileList &fileList, const QString &path) const;
+    void loadFileListFromXml(FileList &fileList, QFile * const file) const;
     const QString getFileName() const {return fileName;}
 
 private:
     const QString fileName;
+    FileObject parseFile(QXmlStreamReader &xml) const;
 };
 
 #endif // XMLSAVELOAD_H
