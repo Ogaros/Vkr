@@ -35,8 +35,9 @@ qint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &p
     return size;
 }
 
-void XmlSaveLoad::loadFileListFromXml(FileList &fileList, QFile * const file) const
+void XmlSaveLoad::loadFileListFromXml(FileList &fileList, QFile * file) const
 {
+    file->seek(0);
     QXmlStreamReader xml(file);
     while(!xml.atEnd() && !xml.hasError())
     {

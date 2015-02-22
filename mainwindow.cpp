@@ -83,5 +83,5 @@ void MainWindow::encrypt()
 
 void MainWindow::decrypt()
 {
-    combiner.separateReverse("D:\\Users\\Ogare\\Desktop\\TestFolder\\");
+    QtConcurrent::run(&combiner, &Combiner::separateReverse, QString("D:\\Users\\Ogare\\Desktop\\TestFolder\\"));
 }

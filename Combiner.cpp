@@ -31,7 +31,12 @@ void Combiner::fillFileList(const QString &path)
             if(name != "." && name != "..")
             {
                 if(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                {
+//                    QString noDrivePath = path;
+//                    noDrivePath.remove(0, 3);
+//                    fillFileList(noDrivePath + name + "\\");
                     fillFileList(path + name + "\\");
+                }
                 else
                 {
                     quint64 size = (fd.nFileSizeHigh * (MAXDWORD + 1)) + fd.nFileSizeLow;
@@ -112,7 +117,7 @@ void Combiner::combineReverse(const QString &path)
     {
         block.fill(0, (((containerSize / blockSize) + 1) * blockSize) - containerSize);
     }
-
+    currentFile.reset(nullptr);
     try
     {
         block.append(getBlockReverse(blockSize - block.size()));
@@ -144,29 +149,50 @@ void Combiner::separateReverse(const QString &path)
     size_t blockSize = 64; // algorithm->getBlockSize();
 
     block = getBlockFromContainerReverse(blockSize, containerFile);
-    qint64 xmlSize = block.toLongLong();
     XmlSaveLoad xml;
-    QFile xmlFile(path + xml.getFileName());
-    if(!xmlFile.open(QIODevice::ReadWrite))
-        throw std::runtime_error("Failed to open xml file");
-
-    for(qint64 currentSize = 0;;)
+    fileList.emplace_back(path, xml.getFileName(), block.toLongLong());
+    block.clear();
+    for(currentFileIter = fileList.begin(); currentFileIter != fileList.end(); currentFileIter++)
     {
-        block = getBlockFromContainerReverse(blockSize, containerFile);
-        currentSize += block.size();
-        if(currentSize <= xmlSize)
+        qint64 currentSize = 0;
+        qint64 fileSize = currentFileIter->size;
+        const QString filePath = currentFileIter->path;
+        QDir dir;
+        dir.mkpath(filePath); // TODO:: fix file path
+        currentFile.reset(new QFile(filePath + currentFileIter->name));
+        if(!currentFile->open(QIODevice::ReadWrite))
+            throw std::runtime_error("Failed to open destination file");
+        while(true)
         {
-            xmlFile.write(block);
+            if(block.isEmpty())
+            {
+                block = getBlockFromContainerReverse(blockSize, containerFile);
+                //TODO:: add block size check
+            }
+            currentSize += block.size();
+            if(currentSize <= fileSize)
+            {
+                currentFile->write(block);
+                block.clear();
+            }
+            else
+            {
+                qint64 blockPadding = currentSize - fileSize;
+                currentFile->write(block.right(block.size() - blockPadding));
+                block = block.left(blockPadding);
+                if(currentFileIter == fileList.begin())
+                {
+                    currentFile->flush();
+                    xml.loadFileListFromXml(fileList, currentFile.get());
+                    fileList.splice(fileList.begin(), fileList, std::prev(fileList.end(), 1));
+                    currentFile->remove();
+                }
+                break;
+            }
         }
-        else
-        {
-            xmlFile.write(block.right(blockSize - (currentSize - xmlSize)));
-            break;
-        }
+        currentFile->close();
     }
-    xmlFile.flush();
-    xml.loadFileListFromXml(fileList, &xmlFile);
-    xmlFile.remove();
+    containerFile.remove();
 }
 
 QByteArray Combiner::getBlock(const int &size)

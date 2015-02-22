@@ -4,6 +4,7 @@
 #include <QObject>
 #include <list>
 #include <QFile>
+#include <QDir>
 #include <QString>
 #include <string>
 #include <memory>

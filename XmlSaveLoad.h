@@ -7,6 +7,7 @@
 #include <exception>
 #include <list>
 #include <FileObject.h>
+#include <memory>
 
 using FileList = std::list<FileObject>;
 
@@ -16,7 +17,7 @@ public:
     XmlSaveLoad();
     ~XmlSaveLoad();
     qint64 saveFileListAsXml(const FileList &fileList, const QString &path) const;
-    void loadFileListFromXml(FileList &fileList, QFile * const file) const;
+    void loadFileListFromXml(FileList &fileList, QFile * file) const;
     const QString getFileName() const {return fileName;}
 
 private:
