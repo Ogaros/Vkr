@@ -31,16 +31,16 @@ void Combiner::fillFileList(const QString &path)
             if(name != "." && name != "..")
             {
                 if(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-                {
-//                    QString noDrivePath = path;
-//                    noDrivePath.remove(0, 3);
-//                    fillFileList(noDrivePath + name + "\\");
+                {                    
                     fillFileList(path + name + "\\");
+
                 }
                 else
                 {
                     quint64 size = (fd.nFileSizeHigh * (MAXDWORD + 1)) + fd.nFileSizeLow;
-                    fileList.emplace_back(path, name, size);
+                    QString noDrivePath = path;
+                    noDrivePath.replace(noDrivePath.indexOf(drivePath), drivePath.size(), "");
+                    fileList.emplace_back(noDrivePath, name, size);
                 }
             }
         }
@@ -90,6 +90,7 @@ void Combiner::combine(const QString &path)
 void Combiner::combineReverse(const QString &path)
 {
     fileList.clear();
+    drivePath = path;
     fillFileList(path);
     if(fileList.empty())
         throw std::runtime_error("No files to encrypt");
@@ -100,7 +101,7 @@ void Combiner::combineReverse(const QString &path)
     try{xmlSize = xml.saveFileListAsXml(fileList, path);}
     catch(...){throw;}
 
-    fileList.emplace_back(path, xml.getFileName(), 0);
+    fileList.emplace_back("", xml.getFileName(), 0);
     currentFileIter = fileList.begin();
 
     QFile containerFile(path + containerName);
@@ -118,11 +119,12 @@ void Combiner::combineReverse(const QString &path)
         block.fill(0, (((containerSize / blockSize) + 1) * blockSize) - containerSize);
     }
     currentFile.reset(nullptr);
+    QDir dir(path);
     try
     {
-        block.append(getBlockReverse(blockSize - block.size()));
+        block.append(getBlockReverse(blockSize - block.size(), dir));
         containerFile.write(block);
-        while((block = getBlockReverse(blockSize)).size() == blockSize)
+        while((block = getBlockReverse(blockSize, dir)).size() == blockSize)
         {
             containerFile.write(block);
         }
@@ -141,6 +143,7 @@ void Combiner::combineReverse(const QString &path)
 void Combiner::separateReverse(const QString &path)
 {
     fileList.clear();
+    drivePath = path;
     QFile containerFile(path + containerName);
     if(!containerFile.open(QIODevice::ReadWrite))
         throw std::runtime_error("Failed to open container file");
@@ -150,18 +153,17 @@ void Combiner::separateReverse(const QString &path)
 
     block = getBlockFromContainerReverse(blockSize, containerFile);
     XmlSaveLoad xml;
-    fileList.emplace_back(path, xml.getFileName(), block.toLongLong());
+    fileList.emplace_back("", xml.getFileName(), block.toLongLong());
     block.clear();
+    QDir dir(path);
     for(currentFileIter = fileList.begin(); currentFileIter != fileList.end(); currentFileIter++)
     {
         qint64 currentSize = 0;
         qint64 fileSize = currentFileIter->size;
         const QString filePath = currentFileIter->path;
-        QDir dir;
-        dir.mkpath(filePath); // TODO:: fix file path
-        currentFile.reset(new QFile(filePath + currentFileIter->name));
-        if(!currentFile->open(QIODevice::ReadWrite))
-            throw std::runtime_error("Failed to open destination file");
+        if(!filePath.isEmpty())
+            dir.mkpath(filePath);
+        openCurrentFile();
         while(true)
         {
             if(block.isEmpty())
@@ -233,7 +235,7 @@ QByteArray Combiner::getBlock(const int &size)
     return block;
 }
 
-QByteArray Combiner::getBlockReverse(const int &size)
+QByteArray Combiner::getBlockReverse(const int &size, const QDir &dir)
 {
     QByteArray block;
     if(currentFile == nullptr)
@@ -248,13 +250,15 @@ QByteArray Combiner::getBlockReverse(const int &size)
         currentFile->seek(0);
         block = currentFile->read(fileSize);
         currentFile->remove();
+        if(!currentFileIter->path.isEmpty())
+            dir.rmpath(currentFileIter->path);
 
         currentFileIter++;
         if(currentFileIter != fileList.end())
         {
             try {openCurrentFile();}
             catch(...){throw;}
-            block.append(getBlockReverse(size - block.size()));
+            block.append(getBlockReverse(size - block.size(), dir));
         }
         else
         {
@@ -286,7 +290,8 @@ QByteArray Combiner::getBlockFromContainerReverse(const int &size, QFile &contai
 
 void Combiner::openCurrentFile()
 {
-    currentFile.reset(new QFile(currentFileIter->path + currentFileIter->name));
+    QString filePath = drivePath + currentFileIter->path + currentFileIter->name;
+    currentFile.reset(new QFile(filePath));
     if(!currentFile->open(QIODevice::ReadWrite))
-        throw std::runtime_error("Failed to open file for encryption");
+        throw std::runtime_error("Failed to open " + filePath.toStdString());
 }

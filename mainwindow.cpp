@@ -10,6 +10,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->refreshListButton, SIGNAL(clicked()), this, SLOT(refreshDeviceList()));
     connect(ui->encryptButton, SIGNAL(clicked()), this, SLOT(encrypt()));
     connect(ui->decryptButton, SIGNAL(clicked()), this, SLOT(decrypt()));
+    connect(ui->openButton, SIGNAL(clicked()), this, SLOT(openSelectedDir()));
 }
 
 MainWindow::~MainWindow()
@@ -31,6 +32,7 @@ std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainW
                 if(!GetVolumeInformationW(path.c_str(), label, sizeof(label), nullptr, nullptr, nullptr, nullptr, 0))
                 {
                     std::wcerr << L"GetVolumeInformationW(" << path << L") error: " << GetLastError() << std::endl;
+                    //TODO:: add exception
                 }
                 else
                 {
@@ -43,6 +45,7 @@ std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainW
             dwDrives = dwDrives >> 1;
             path[0]++;
         }
+    pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\TestFolder\\", "Test folder", 0, 0);
     return pDevices;
 }
 
@@ -70,18 +73,25 @@ void MainWindow::refreshDeviceList()
     ui->deviceList->header()->resizeSection(0, ui->deviceList->header()->sectionSize(0) + 20);
 }
 
+void MainWindow::openSelectedDir()
+{
+    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
+    QString path = item->data(0, Qt::UserRole).toString();
+    QDesktopServices::openUrl(QUrl("file:///" + item->data(0, Qt::UserRole).toString()));
+}
+
 void MainWindow::encrypt()
 {
-    //QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
-    //combiner.combine(item->data(3, Qt::UserRole).toString());
+    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
     ProgressBarDialog *pb = new ProgressBarDialog();
     connect(&combiner, SIGNAL(fileEncrypted()), pb, SLOT(addOne()));
     connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
-    QtConcurrent::run(&combiner, &Combiner::combineReverse, QString("D:\\Users\\Ogare\\Desktop\\TestFolder\\"));
+    QtConcurrent::run(&combiner, &Combiner::combineReverse, QString(item->data(0, Qt::UserRole).toString()));
     //QtConcurrent::run(&combiner, &Combiner::combine, QString("G:\\"));
 }
 
 void MainWindow::decrypt()
 {
-    QtConcurrent::run(&combiner, &Combiner::separateReverse, QString("D:\\Users\\Ogare\\Desktop\\TestFolder\\"));
+    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
+    QtConcurrent::run(&combiner, &Combiner::separateReverse, QString(item->data(0, Qt::UserRole).toString()));
 }

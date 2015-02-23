@@ -30,14 +30,15 @@ public:
 private:
     void fillFileList(const QString &path);
     QByteArray getBlock(const int &size);
-    QByteArray getBlockReverse(const int &size);
+    QByteArray getBlockReverse(const int &size, const QDir &dir);
     QByteArray getBlockFromContainerReverse(const int &size, QFile &file);
     void openCurrentFile();
     std::unique_ptr<EncryptionAlgorithm> algorithm;
     std::unique_ptr<QFile> currentFile;
     FileList fileList;
     FileList::iterator currentFileIter;
-    const QString containerName;
+    QString drivePath;
+    const QString containerName;    
 
 
 signals:

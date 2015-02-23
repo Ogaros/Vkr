@@ -7,6 +7,7 @@
 #include <memory>
 #include <QString>
 #include <QtConcurrent/QtConcurrent>
+#include <QDesktopServices>
 #include <tuple>
 #include <iostream>
 #include <Combiner.h>
@@ -26,6 +27,7 @@ public:
 
 public slots:
     void refreshDeviceList();
+    void openSelectedDir();
     void encrypt();
     void decrypt();
 
