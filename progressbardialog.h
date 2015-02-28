@@ -14,12 +14,14 @@ class ProgressBarDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit ProgressBarDialog(QWidget *parent = 0);
+    enum dialogType{Encryption, Decryption};
+    explicit ProgressBarDialog(const dialogType type, QWidget *parent = 0);
     ~ProgressBarDialog();
 
 public slots:
     void addOne();
     void setup(const int &maximum);
+    void finish();
 
 private slots:
     void setTitleDots();
@@ -28,7 +30,7 @@ private:
     Ui::ProgressBarDialog *ui;
     bool skippedFirstFile;
     QTimer timer;
-
+    const dialogType type;
 };
 
 #endif // PROGRESSBARDIALOG_H

@@ -8,6 +8,7 @@
 #include <QString>
 #include <QtConcurrent/QtConcurrent>
 #include <QDesktopServices>
+#include <QMessageBox>
 #include <tuple>
 #include <iostream>
 #include <Combiner.h>
@@ -34,7 +35,7 @@ public slots:
 private:
     std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> detectDevices();
     void fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> pDevices);
-
+    bool deviceSelectionCheck(const QString &text);
     Ui::MainWindow *ui;
     Combiner combiner;
 };

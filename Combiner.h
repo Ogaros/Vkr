@@ -42,7 +42,8 @@ private:
 
 
 signals:
-    void fileEncrypted();
+    void fileProcessed();
+    void processingFinished();
     void filesCounted(int number);
 
 public slots:

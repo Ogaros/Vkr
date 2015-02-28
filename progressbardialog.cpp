@@ -1,9 +1,9 @@
 #include "progressbardialog.h"
 #include "ui_progressbardialog.h"
 
-ProgressBarDialog::ProgressBarDialog(QWidget *parent) :
+ProgressBarDialog::ProgressBarDialog(const dialogType type, QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::ProgressBarDialog)
+    ui(new Ui::ProgressBarDialog), type(type)
 {
     ui->setupUi(this);    
     setAttribute(Qt::WA_DeleteOnClose);
@@ -16,19 +16,13 @@ ProgressBarDialog::~ProgressBarDialog()
 
 void ProgressBarDialog::addOne()
 {
-    if(skippedFirstFile == false)
+    if(type == Encryption && skippedFirstFile == false)
         skippedFirstFile = true;
     else
     {
         int value = ui->progressBar->value() + 1;
-        ui->progressBar->setValue(value);
-        if(value == ui->progressBar->maximum())
-        {
-            timer.stop();
-            setWindowTitle("Encryption finished");
-            MessageBeep(MB_OK);
-            ui->closeButton->setEnabled(true);
-        }
+        if(value <= ui->progressBar->maximum())
+            ui->progressBar->setValue(value);
     }
 }
 
@@ -44,9 +38,19 @@ void ProgressBarDialog::setup(const int &maximum)
     show();
 }
 
+void ProgressBarDialog::finish()
+{
+    timer.stop();
+    type == Encryption ? setWindowTitle("Encryption finished") :
+                         setWindowTitle("Decryption finished");
+    MessageBeep(MB_OK);
+    ui->closeButton->setEnabled(true);
+}
+
 void ProgressBarDialog::setTitleDots()
 {
     static int dots = 0;
-    setWindowTitle("Encrypting" + QString(dots, '.'));
+    type == Encryption ? setWindowTitle("Encrypting" + QString(dots, '.')) :
+                         setWindowTitle("Decrypting" + QString(dots, '.'));
     dots > 2 ? dots = 0 : dots++;
 }

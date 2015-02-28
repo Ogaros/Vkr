@@ -138,6 +138,7 @@ void Combiner::combineReverse(const QString &path)
 
     containerFile.flush();
     containerFile.close();
+    emit processingFinished();
 }
 
 void Combiner::separateReverse(const QString &path)
@@ -185,16 +186,19 @@ void Combiner::separateReverse(const QString &path)
                 if(currentFileIter == fileList.begin())
                 {
                     currentFile->flush();
-                    xml.loadFileListFromXml(fileList, currentFile.get());
+                    xml.loadFileListFromXml(fileList, currentFile.get());                    
                     fileList.splice(fileList.begin(), fileList, std::prev(fileList.end(), 1));
                     currentFile->remove();
+                    emit filesCounted(fileList.size() - 1);
                 }
+                emit fileProcessed();
                 break;
             }
         }
         currentFile->close();
     }
     containerFile.remove();
+    emit processingFinished();
 }
 
 QByteArray Combiner::getBlock(const int &size)
@@ -211,7 +215,7 @@ QByteArray Combiner::getBlock(const int &size)
         currentFileIter++;
         if(currentFileIter != fileList.end())
         {
-            emit fileEncrypted();
+            emit fileProcessed();
             currentFile->close();            
             try {openCurrentFile();}
             catch(...){throw;}
@@ -222,7 +226,7 @@ QByteArray Combiner::getBlock(const int &size)
             currentFileIter--;
             if(!block.isEmpty())
             {
-                emit fileEncrypted();
+                emit fileProcessed();
                 block.append(QByteArray(size - block.size(), 0));
             }
             else
@@ -246,7 +250,7 @@ QByteArray Combiner::getBlockReverse(const int &size, const QDir &dir)
     qint64 fileSize = currentFile->size();
     if(fileSize < static_cast<qint64>(size))
     {
-        emit fileEncrypted();
+        emit fileProcessed();
         currentFile->seek(0);
         block = currentFile->read(fileSize);
         currentFile->remove();

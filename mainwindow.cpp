@@ -65,6 +65,17 @@ void MainWindow::fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, 
     }
 }
 
+bool MainWindow::deviceSelectionCheck(const QString &text)
+{
+    if(ui->deviceList->selectedItems().isEmpty())
+    {
+        MessageBeep(MB_OK);
+        QMessageBox::warning(this, this->windowTitle(), text, QMessageBox::Ok);
+        return false;
+    }
+    return true;
+}
+
 void MainWindow::refreshDeviceList()
 {
     ui->deviceList->clear();
@@ -75,6 +86,8 @@ void MainWindow::refreshDeviceList()
 
 void MainWindow::openSelectedDir()
 {
+    if(!deviceSelectionCheck("You must select a device to open"))
+        return;
     QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
     QString path = item->data(0, Qt::UserRole).toString();
     QDesktopServices::openUrl(QUrl("file:///" + item->data(0, Qt::UserRole).toString()));
@@ -82,16 +95,24 @@ void MainWindow::openSelectedDir()
 
 void MainWindow::encrypt()
 {
-    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
-    ProgressBarDialog *pb = new ProgressBarDialog();
-    connect(&combiner, SIGNAL(fileEncrypted()), pb, SLOT(addOne()));
+    if(!deviceSelectionCheck("You must select a device to encrypt"))
+        return;
+    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();    
+    ProgressBarDialog *pb = new ProgressBarDialog(ProgressBarDialog::Encryption);
+    connect(&combiner, SIGNAL(fileProcessed()), pb, SLOT(addOne()));
     connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
+    connect(&combiner, SIGNAL(processingFinished()), pb, SLOT(finish()));
     QtConcurrent::run(&combiner, &Combiner::combineReverse, QString(item->data(0, Qt::UserRole).toString()));
-    //QtConcurrent::run(&combiner, &Combiner::combine, QString("G:\\"));
 }
 
 void MainWindow::decrypt()
 {
+    if(!deviceSelectionCheck("You must select an encrypted device to decrypt"))
+        return;
     QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
+    ProgressBarDialog *pb = new ProgressBarDialog(ProgressBarDialog::Decryption);
+    connect(&combiner, SIGNAL(fileProcessed()), pb, SLOT(addOne()));
+    connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
+    connect(&combiner, SIGNAL(processingFinished()), pb, SLOT(finish()));
     QtConcurrent::run(&combiner, &Combiner::separateReverse, QString(item->data(0, Qt::UserRole).toString()));
 }
