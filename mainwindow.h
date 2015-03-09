@@ -13,6 +13,7 @@
 #include <iostream>
 #include <Combiner.h>
 #include <progressbardialog.h>
+#include <EncryptionAlgorithm/Gost.h>
 
 namespace Ui {
 class MainWindow;

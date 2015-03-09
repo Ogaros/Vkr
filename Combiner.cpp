@@ -2,17 +2,12 @@
 
 Combiner::Combiner(QObject *parent) : QObject(parent), containerName("Encrypted.data")
 {
-
+    algorithm.setKey("h47skro;,sng89o3sy6ha2qwn89sk.er");
 }
 
 Combiner::~Combiner()
 {
 
-}
-
-void Combiner::setAlgorithm(std::unique_ptr<EncryptionAlgorithm> alg)
-{
-    this->algorithm.swap(alg);
 }
 
 void Combiner::fillFileList(const QString &path)
@@ -70,7 +65,7 @@ void Combiner::combine(const QString &path)
         throw std::runtime_error("Failed to open container file");
 
     QByteArray block;
-    size_t blockSize = 64; // algorithm->getBlockSize();
+    size_t blockSize = algorithm.getBlockSize();
     try
     {        
         block.setNum(xmlSize);
@@ -109,7 +104,7 @@ void Combiner::combineReverse(const QString &path)
         throw std::runtime_error("Failed to open container file");
 
     QByteArray block;
-    int blockSize = 64; // algorithm->getBlockSize();
+    int blockSize = algorithm.getBlockSize();
 
     qint64 containerSize = xmlSize;
     for(auto &a : fileList)
@@ -123,10 +118,10 @@ void Combiner::combineReverse(const QString &path)
     try
     {
         block.append(getBlockReverse(blockSize - block.size(), dir));
-        containerFile.write(block);
+        containerFile.write(algorithm.encrypt(block));
         while((block = getBlockReverse(blockSize, dir)).size() == blockSize)
         {
-            containerFile.write(block);
+            containerFile.write(algorithm.encrypt(block));
         }
     }
     catch(...){throw;}
@@ -134,7 +129,7 @@ void Combiner::combineReverse(const QString &path)
     block.setNum(xmlSize);
     if(block.size() < blockSize)
         block.prepend(QByteArray(blockSize - static_cast<size_t>(block.size()), '0'));
-    containerFile.write(block);
+    containerFile.write(algorithm.encrypt(block));
 
     containerFile.flush();
     containerFile.close();
@@ -150,9 +145,10 @@ void Combiner::separateReverse(const QString &path)
         throw std::runtime_error("Failed to open container file");
 
     QByteArray block;
-    size_t blockSize = 64; // algorithm->getBlockSize();
+    size_t blockSize = algorithm.getBlockSize();
 
     block = getBlockFromContainerReverse(blockSize, containerFile);
+    block = algorithm.decrypt(block);
     XmlSaveLoad xml;
     fileList.emplace_back("", xml.getFileName(), block.toLongLong());
     block.clear();
@@ -170,6 +166,7 @@ void Combiner::separateReverse(const QString &path)
             if(block.isEmpty())
             {
                 block = getBlockFromContainerReverse(blockSize, containerFile);
+                block = algorithm.decrypt(block);
                 //TODO:: add block size check
             }
             currentSize += block.size();

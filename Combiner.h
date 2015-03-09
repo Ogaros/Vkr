@@ -10,7 +10,7 @@
 #include <memory>
 #include <exception>
 #include <windows.h>
-#include <EncryptionAlgorithm/EncryptionAlgorithm.h>
+#include <EncryptionAlgorithm/Gost.h>
 #include <FileObject.h>
 #include <XmlSaveLoad.h>
 
@@ -25,7 +25,6 @@ public:
     void combine(const QString &path);
     void combineReverse(const QString &path);
     void separateReverse(const QString &path);
-    void setAlgorithm(std::unique_ptr<EncryptionAlgorithm> alg);
 
 private:
     void fillFileList(const QString &path);
@@ -33,7 +32,7 @@ private:
     QByteArray getBlockReverse(const int &size, const QDir &dir);
     QByteArray getBlockFromContainerReverse(const int &size, QFile &file);
     void openCurrentFile();
-    std::unique_ptr<EncryptionAlgorithm> algorithm;
+    Gost algorithm;
     std::unique_ptr<QFile> currentFile;
     FileList fileList;
     FileList::iterator currentFileIter;

@@ -18,16 +18,19 @@ SOURCES += main.cpp\
     EncryptionAlgorithm/EncryptionAlgorithm.cpp \
     Combiner.cpp \
     XmlSaveLoad.cpp \
-    progressbardialog.cpp
+    progressbardialog.cpp \
+    EncryptionAlgorithm/Gost.cpp \
 
 HEADERS  += mainwindow.h \
     EncryptionAlgorithm/EncryptionAlgorithm.h \
     Combiner.h \
     XmlSaveLoad.h \
     progressbardialog.h \
-    FileObject.h
+    FileObject.h \
+    EncryptionAlgorithm/Gost.h
 
 FORMS    += mainwindow.ui \
     progressbardialog.ui
 
 CONFIG   += c++11
+

@@ -6,7 +6,7 @@
 class EncryptionAlgorithm
 {
 public:
-    virtual size_t getBlockSize() = 0;
+    virtual int getBlockSize() = 0;
     virtual QByteArray encrypt(QByteArray data, QByteArray key) = 0;
     virtual QByteArray decrypt(QByteArray data, QByteArray key) = 0;
 };
