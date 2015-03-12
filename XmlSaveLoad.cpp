@@ -1,6 +1,8 @@
 #include "XmlSaveLoad.h"
 
-XmlSaveLoad::XmlSaveLoad() : fileName("FileList.xml")
+const QString XmlSaveLoad::fileName = "FileList.xml";
+
+XmlSaveLoad::XmlSaveLoad()
 {
 
 }
@@ -10,7 +12,7 @@ XmlSaveLoad::~XmlSaveLoad()
 
 }
 
-qint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &path) const
+quint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &path) const
 {
     QFile file(path + fileName);
     if(!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -25,12 +27,13 @@ qint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &p
         xml.writeAttribute("name", a.name);
         xml.writeTextElement("path", a.path);
         xml.writeTextElement("size", QString::number(a.size));
+        xml.writeTextElement("firstBlockSize", QString::number(a.firstBlockSize));
         xml.writeEndElement();
     }
     xml.writeEndElement();
     xml.writeEndDocument();
     file.flush();
-    qint64 size = file.size();
+    quint64 size = static_cast<quint64>(file.size());
     file.close();
     return size;
 }
@@ -59,7 +62,7 @@ void XmlSaveLoad::loadFileListFromXml(FileList &fileList, QFile * file) const
 FileObject XmlSaveLoad::parseFile(QXmlStreamReader &xml) const
 {
     QString name, path;
-    qint64 size;
+    qint64 size, firstBlockSize;
     QXmlStreamAttributes attributes = xml.attributes();
     if(attributes.hasAttribute("name"))
         name = attributes.value("name").toString();
@@ -76,10 +79,15 @@ FileObject XmlSaveLoad::parseFile(QXmlStreamReader &xml) const
             else if(xml.name() == "size")
             {
                 xml.readNext();
-                size = xml.text().toLongLong();
+                size = xml.text().toULongLong();
+            }
+            else if(xml.name() == "firstBlockSize")
+            {
+                xml.readNext();
+                firstBlockSize = xml.text().toULongLong();
             }
         }
         xml.readNext();
     }
-    return FileObject(path, name, size);
+    return FileObject(path, name, size, firstBlockSize);
 }
