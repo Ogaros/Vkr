@@ -2,6 +2,8 @@
 #define GOST_H
 
 #include <QByteArray>
+#include <random>
+#include <limits>
 
 class Gost
 {
@@ -14,6 +16,9 @@ public:
     quint64 coreStep(const quint64 block, const int keyPart) const;
     quint64 core32Encrypt(quint64 block) const;
     quint64 core32Decrypt(quint64 block) const;
+    quint64 xorEncrypt(quint64 block);
+    quint64 nextVector(const quint64 amount);
+    QByteArray generateInitVector();
 
 private:
 
