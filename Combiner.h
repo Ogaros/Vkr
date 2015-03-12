@@ -32,12 +32,14 @@ private:
     QByteArray getBlockReverse(const int &size, const QDir &dir);
     QByteArray getBlockFromContainerReverse(const int &size, QFile &file);
     void openCurrentFile();
+    void encryptBlock(QByteArray &block);
+    void saveFileList();
     Gost algorithm;
     std::unique_ptr<QFile> currentFile;
     FileList fileList;
     FileList::iterator currentFileIter;
-    QString drivePath;
-    const QString containerName;    
+    QString devicePath;
+    static const QString containerName;
 
 
 signals:
