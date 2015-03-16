@@ -29,17 +29,21 @@ public:
 private:
     void fillFileList(const QString &path);
     QByteArray getBlock(const int &size);
-    QByteArray getBlockReverse(const int &size, const QDir &dir);
-    QByteArray getBlockFromContainerReverse(const int &size, QFile &file);
+    QByteArray getBlockReverse(const int &size);
+    QByteArray getBlockFromContainerReverse(const int &size, QFile &containerFile);
     void openCurrentFile();
     void encryptBlock(QByteArray &block);
+    void decryptBlock(QByteArray &block);
     void saveFileList();
+    void removeCurrentFileDir();
+    void restoreFile(QByteArray &block, QFile &containerFile, const QDir &dir);
     Gost algorithm;
     std::unique_ptr<QFile> currentFile;
     FileList fileList;
     FileList::iterator currentFileIter;
     QString devicePath;
     static const QString containerName;
+    static const int blockSize;
 
 
 signals:

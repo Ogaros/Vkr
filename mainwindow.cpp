@@ -86,20 +86,11 @@ void MainWindow::refreshDeviceList()
 
 void MainWindow::openSelectedDir()
 {
-//    if(!deviceSelectionCheck("You must select a device to open"))
-//        return;
-//    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
-//    QString path = item->data(0, Qt::UserRole).toString();
-//    QDesktopServices::openUrl(QUrl("file:///" + item->data(0, Qt::UserRole).toString()));
-    Gost G;
-    QByteArray key = "jeysngi5ks.9pl3usn6ht8so9tfg4h2a";
-    G.setKey(key);
-    while(true)
-    {
-        QByteArray block = "00000683";
-        block = G.encrypt(block);
-        block = G.decrypt(block);
-    }
+    if(!deviceSelectionCheck("You must select a device to open"))
+        return;
+    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
+    QString path = item->data(0, Qt::UserRole).toString();
+    QDesktopServices::openUrl(QUrl("file:///" + item->data(0, Qt::UserRole).toString()));
 }
 
 void MainWindow::encrypt()

@@ -4,6 +4,7 @@
 #include <QByteArray>
 #include <random>
 #include <limits>
+#include <vector>
 
 class Gost
 {
@@ -13,18 +14,27 @@ public:
     int getBlockSize(){return blockSize;}
     bool setKey(QByteArray newKey);
     bool setInitVector(QByteArray newInitVector);
+
+    quint64 nextGamma(const quint64 amount);
+    void setupGamma(qint64 containerSize, int blockSize);
+    QByteArray generateInitVector();
+
+private:
     quint64 coreStep(const quint64 block, const int keyPart) const;
     quint64 core32Encrypt(quint64 block) const;
     quint64 core32Decrypt(quint64 block) const;
     quint64 xorEncrypt(quint64 block);
-    quint64 nextVector(const quint64 amount);
-    QByteArray generateInitVector();
-
-private:
+    quint64 xorDecrypt(quint64 block);
+    void fillGammaBatch(const int batchSize);
 
     const int blockSize = 8;
-    quint64 initVector;
+    quint64 gamma;
     quint32 key[8];
+    std::vector<quint64> gammaCheckpoints;
+    std::vector<std::pair<quint64, int>> gammaBatch;
+    std::vector<std::pair<quint64, int>>::reverse_iterator currentGammaIter;
+    int currentGammaCheckpoint;
+    int batchSize;
     //                                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
     quint8 replacementTable[8][16] = {{0x4, 0xA, 0x9, 0x2, 0xD, 0x8, 0x0, 0xE, 0x6, 0xB, 0x1, 0xC, 0x7, 0xF, 0x5, 0x3}, // 0
                                       {0xB, 0xE, 0x4, 0xC, 0x6, 0xD, 0xF, 0xA, 0x2, 0x3, 0x8, 0x1, 0x0, 0x7, 0x5, 0x9}, // 1

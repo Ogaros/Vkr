@@ -7,13 +7,13 @@
 
 struct FileObject
 {
-    FileObject(const QString &path, const QString &name, const quint64 &size, const quint64 &firstBlockSize)
+    FileObject(const QString &path, const QString &name, const qint64 &size, const qint64 &firstBlockSize)
         : path(path), name(name), size(size), firstBlockSize(firstBlockSize){}
 
     QString path;
     QString name;    
-    quint64 size;
-    quint64 firstBlockSize;
+    qint64 size;
+    qint64 firstBlockSize;
 };
 
 #endif // FILESYSTEMOBJECT

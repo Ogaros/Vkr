@@ -12,7 +12,7 @@ XmlSaveLoad::~XmlSaveLoad()
 
 }
 
-quint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &path) const
+qint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &path) const
 {
     QFile file(path + fileName);
     if(!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -33,7 +33,7 @@ quint64 XmlSaveLoad::saveFileListAsXml(const FileList &fileList, const QString &
     xml.writeEndElement();
     xml.writeEndDocument();
     file.flush();
-    quint64 size = static_cast<quint64>(file.size());
+    qint64 size = file.size();
     file.close();
     return size;
 }
@@ -79,12 +79,12 @@ FileObject XmlSaveLoad::parseFile(QXmlStreamReader &xml) const
             else if(xml.name() == "size")
             {
                 xml.readNext();
-                size = xml.text().toULongLong();
+                size = xml.text().toLongLong();
             }
             else if(xml.name() == "firstBlockSize")
             {
                 xml.readNext();
-                firstBlockSize = xml.text().toULongLong();
+                firstBlockSize = xml.text().toLongLong();
             }
         }
         xml.readNext();
