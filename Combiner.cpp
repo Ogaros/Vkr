@@ -1,7 +1,7 @@
 #include "Combiner.h"
 
 const QString Combiner::containerName = "Encrypted.data";
-const int Combiner::blockSize = 256 * 1024 * 1024; // 256 MB
+const int Combiner::blockSize = 32 * 1024 * 1024; // 256 MB
 
 Combiner::Combiner(QObject *parent) : QObject(parent)
 {
@@ -147,7 +147,8 @@ void Combiner::separateReverse(const QString &path)
     block = getBlockFromContainerReverse(8, containerFile);
     block = algorithm.decrypt(block);
     fileList.emplace_back("", XmlSaveLoad::getFileName(), block.toULongLong(), block.toULongLong());
-    block.clear();
+    block = getBlockFromContainerReverse(containerFile.size() % blockSize, containerFile);
+    decryptBlock(block);
     QDir dir(devicePath);
     for(currentFileIter = fileList.begin(); currentFileIter != fileList.end(); currentFileIter++)
     {
@@ -278,7 +279,11 @@ void Combiner::encryptBlock(QByteArray &block)
 void Combiner::decryptBlock(QByteArray &block)
 {
     int algBlockSize = algorithm.getBlockSize();
-    for(int i = 0; i < block.size(); i += algBlockSize)
+    int firstBlockSize = block.size() % algBlockSize;
+    if(firstBlockSize == 0)
+        firstBlockSize = algBlockSize;
+    block.replace(block.size() - firstBlockSize, algBlockSize, algorithm.decrypt(block.right(firstBlockSize)));
+    for(int i = block.size() - firstBlockSize - algBlockSize; i >= 0; i -= algBlockSize)
     {
         block.replace(i, algBlockSize, algorithm.decrypt(block.mid(i, algBlockSize)));
     }
@@ -333,10 +338,6 @@ void Combiner::restoreFile(QByteArray &block, QFile &containerFile, const QDir &
                 {
                     currentFile->write(block.right(firstBlockSize));
                     block = block.left(block.size() - firstBlockSize);
-                    currentSize += blockSize - block.size();
-                    QByteArray temp = getBlockFromContainerReverse(blockSize - block.size(), containerFile);
-                    decryptBlock(temp);
-                    block.prepend(temp);
                 }
             }
             currentFile->write(block);

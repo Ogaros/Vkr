@@ -5,6 +5,7 @@
 #include <random>
 #include <limits>
 #include <vector>
+#include <math.h>
 
 class Gost
 {
@@ -25,14 +26,14 @@ private:
     quint64 core32Decrypt(quint64 block) const;
     quint64 xorEncrypt(quint64 block);
     quint64 xorDecrypt(quint64 block);
-    void fillGammaBatch(const int batchSize);
+    void fillGammaBatch(const int batchSize);    
 
     const int blockSize = 8;
     quint64 gamma;
     quint32 key[8];
     std::vector<quint64> gammaCheckpoints;
-    std::vector<std::pair<quint64, int>> gammaBatch;
-    std::vector<std::pair<quint64, int>>::reverse_iterator currentGammaIter;
+    std::vector<quint64> gammaBatch;
+    std::vector<quint64>::reverse_iterator currentGammaIter;
     int currentGammaCheckpoint;
     int batchSize;
     //                                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F

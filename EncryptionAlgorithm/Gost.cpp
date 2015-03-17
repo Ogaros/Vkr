@@ -133,32 +133,23 @@ quint64 Gost::xorEncrypt(quint64 block)
 
 quint64 Gost::xorDecrypt(quint64 block)
 {
-//    if(currentGammaIter == gammaBatch.rend())
-//        fillGammaBatch(batchSize);
-//    quint64 temp = core32Encrypt(*currentGammaIter);
-//    currentGammaIter++;
-    quint64 temp = nextGamma(1);
-    temp = core32Encrypt(temp);
-    currentGammaIter->second -= blockSize;
-    if(currentGammaIter->second <= 0)
-    {
-        currentGammaIter++;
-        if(currentGammaIter != gammaBatch.rend())
-            gamma = currentGammaIter->first;
-    }
+    if(currentGammaIter == gammaBatch.rend())
+        fillGammaBatch(batchSize);
+    quint64 temp = core32Encrypt(*currentGammaIter);
+    currentGammaIter++;
     return block ^ temp;
 }
 
 void Gost::fillGammaBatch(const int size)
 {
-//    gammaBatch.clear();
-//    gammaBatch.reserve(size);
-//    gamma = gammaCheckpoints[currentGammaCheckpoint];
-//    for(int i = 0; i < size; i += blockSize)
-//    {
-//        gammaBatch.push_back(nextGamma(1));
-//    }
-//    currentGammaIter = gammaBatch.rbegin();
+    gammaBatch.clear();
+    gammaBatch.reserve(size / 8);
+    gamma = gammaCheckpoints[currentGammaCheckpoint--];
+    for(int i = 0; i < size; i += blockSize)
+    {
+        gammaBatch.push_back(nextGamma(1));
+    }
+    currentGammaIter = gammaBatch.rbegin();
 }
 
 quint64 Gost::nextGamma(const quint64 amount)
@@ -182,26 +173,21 @@ quint64 Gost::nextGamma(const quint64 amount)
 void Gost::setupGamma(qint64 containerSize, int batchSize)
 {
     this->batchSize = batchSize;
-    gammaBatch.clear();
-    //gammaCheckpoints.clear();
-    //currentGammaCheckpoint = 0;
+    gammaCheckpoints.clear();
+    currentGammaCheckpoint = 0;
     int lastBatchSize = containerSize % batchSize;
     if(lastBatchSize == 0)
         lastBatchSize = batchSize;
     int batchesAmount = containerSize / batchSize;
     if(lastBatchSize != batchSize)
         batchesAmount++;
-    //gammaCheckpoints.push_back(gamma);
-    gammaBatch.emplace_back(gamma, batchesAmount == 1 ? lastBatchSize : batchSize);
+    gammaCheckpoints.push_back(gamma);
     for(int i = 1; i < batchesAmount; i++)
     {
-        //gammaCheckpoints.push_back(nextGamma(batchSize));
-        gammaBatch.emplace_back(nextGamma(batchSize / blockSize), batchSize);
+        gammaCheckpoints.push_back(nextGamma(ceil((double)batchSize / (double)blockSize)));
     }
-    gammaBatch.emplace_back(nextGamma(lastBatchSize / blockSize), 1);
-    currentGammaIter = gammaBatch.rbegin();
-    //currentGammaCheckpoint = gammaCheckpoints.size() - 1;
-    //fillGammaBatch(lastBatchSize);
+    currentGammaCheckpoint = gammaCheckpoints.size() - 1;
+    fillGammaBatch(lastBatchSize);
 }
 
 QByteArray Gost::generateInitVector()
