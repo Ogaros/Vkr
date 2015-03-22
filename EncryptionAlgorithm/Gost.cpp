@@ -1,5 +1,10 @@
 #include "Gost.h"
 
+Gost::Gost(QObject *parent) : QObject(parent)
+{
+
+}
+
 QByteArray Gost::encrypt(QByteArray data)
 {
     quint64 temp = 0;
@@ -15,6 +20,7 @@ QByteArray Gost::encrypt(QByteArray data)
         data[i] = temp & 0xFF;
         temp >>= 8;
     }
+    emit readyToRelease();
     return data;
 }
 
@@ -133,10 +139,14 @@ quint64 Gost::xorEncrypt(quint64 block)
 
 quint64 Gost::xorDecrypt(quint64 block)
 {
+    mutex.lock();
+
     if(currentGammaIter == gammaBatch.rend())
         fillGammaBatch(batchSize);
-    quint64 temp = core32Encrypt(*currentGammaIter);
-    currentGammaIter++;
+    quint64 currentGamma = *currentGammaIter++;
+
+    mutex.unlock();
+    quint64 temp = core32Encrypt(currentGamma);
     return block ^ temp;
 }
 
