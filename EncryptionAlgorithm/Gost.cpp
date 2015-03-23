@@ -2,7 +2,7 @@
 
 Gost::Gost(QObject *parent) : QObject(parent)
 {
-
+    fillOptimizedRepTable();
 }
 
 QByteArray Gost::encrypt(QByteArray data)
@@ -74,59 +74,70 @@ bool Gost::setInitVector(QByteArray newInitVector)
         return false;
 }
 
-quint64 Gost::coreStep(const quint64 block, const int keyPart) const
+inline quint64 Gost::replaceAndRotate(quint32 block) const
 {
-    quint64 result = 0L;
-    quint32 low = block & 0x00000000FFFFFFFF;
-    quint32 high = block >> 32;
-    quint32 temp;
+    block = repTableOptimized[0][block >> 24 & 0xFF] << 24 | repTableOptimized[1][block >> 16 & 0xFF] << 16 |
+            repTableOptimized[2][block >>  8 & 0xFF] <<  8 | repTableOptimized[3][block & 0xFF];
 
-    result |= low;
-    result <<= 32;
-
-    low += key[keyPart];
-
-    for(int i = 0; i < 8; i++)
-    {
-        temp = (low >> i * 4) & 0x0000000F;
-        temp = replacementTable[i][temp];
-        low = (low & ~(0x0000000F << i * 4)) | (temp << i * 4);
-    }
-
-    low = (low << 11) | (low >> 21);
-
-    low ^= high;
-
-    result |= low;
-
-    return result;
+    return (block << 11) | (block >> 21);
 }
 
 quint64 Gost::core32Encrypt(quint64 block) const
 {
-    for(int i = 0; i < 24; i++)
-    {
-        block = coreStep(block, i % 8);
-    }
-    for(int i = 7; i >= 0; i--)
-    {
-        block = coreStep(block, i);
-    }
-    block = (block << 32) | (block >> 32);
-    return block;
+    quint32 n1 = block & 0xFFFFFFFF;
+    quint32 n2 = block >> 32;
+
+    n2 ^= replaceAndRotate(n1 + key[0]);
+    n1 ^= replaceAndRotate(n2 + key[1]);
+    n2 ^= replaceAndRotate(n1 + key[2]);
+    n1 ^= replaceAndRotate(n2 + key[3]);
+    n2 ^= replaceAndRotate(n1 + key[4]);
+    n1 ^= replaceAndRotate(n2 + key[5]);
+    n2 ^= replaceAndRotate(n1 + key[6]);
+    n1 ^= replaceAndRotate(n2 + key[7]);
+
+    n2 ^= replaceAndRotate(n1 + key[0]);
+    n1 ^= replaceAndRotate(n2 + key[1]);
+    n2 ^= replaceAndRotate(n1 + key[2]);
+    n1 ^= replaceAndRotate(n2 + key[3]);
+    n2 ^= replaceAndRotate(n1 + key[4]);
+    n1 ^= replaceAndRotate(n2 + key[5]);
+    n2 ^= replaceAndRotate(n1 + key[6]);
+    n1 ^= replaceAndRotate(n2 + key[7]);
+
+    n2 ^= replaceAndRotate(n1 + key[0]);
+    n1 ^= replaceAndRotate(n2 + key[1]);
+    n2 ^= replaceAndRotate(n1 + key[2]);
+    n1 ^= replaceAndRotate(n2 + key[3]);
+    n2 ^= replaceAndRotate(n1 + key[4]);
+    n1 ^= replaceAndRotate(n2 + key[5]);
+    n2 ^= replaceAndRotate(n1 + key[6]);
+    n1 ^= replaceAndRotate(n2 + key[7]);
+
+    n2 ^= replaceAndRotate(n1 + key[7]);
+    n1 ^= replaceAndRotate(n2 + key[6]);
+    n2 ^= replaceAndRotate(n1 + key[5]);
+    n1 ^= replaceAndRotate(n2 + key[4]);
+    n2 ^= replaceAndRotate(n1 + key[3]);
+    n1 ^= replaceAndRotate(n2 + key[2]);
+    n2 ^= replaceAndRotate(n1 + key[1]);
+    n1 ^= replaceAndRotate(n2 + key[0]);
+
+    block = n2;
+    return block << 32 | n1;
 }
 
 quint64 Gost::core32Decrypt(quint64 block) const
 {
-    for(int i = 0; i < 8; i++)
-    {
-        block = coreStep(block, i);
-    }
-    for(int i = 23; i >= 0; i--)
-    {
-        block = coreStep(block, i % 8);
-    }
-    block = (block << 32) | (block >> 32);
+//    for(int i = 0; i < 8; i++)
+//    {
+//        block = coreStep(block, i);
+//    }
+//    for(int i = 23; i >= 0; i--)
+//    {
+//        block = coreStep(block, i % 8);
+//    }
+//    block = (block << 32) | (block >> 32);
     return block;
 }
 
@@ -150,6 +161,17 @@ quint64 Gost::xorDecrypt(quint64 block)
     return block ^ temp;
 }
 
+void Gost::fillOptimizedRepTable()
+{
+    for(int x = 0; x < 8; x += 2)
+    {
+        for(int i = 0; i < 256; i++)
+        {
+            repTableOptimized[x / 2][i] = replacementTable[x][i >> 4] << 4 | replacementTable[x + 1][i & 0xF];
+        }
+    }
+}
+
 void Gost::fillGammaBatch(const int size)
 {
     gammaBatch.clear();
@@ -162,20 +184,26 @@ void Gost::fillGammaBatch(const int size)
     currentGammaIter = gammaBatch.rbegin();
 }
 
+#define C1 0x01010104
+#define C2 0x01010101
+
 quint64 Gost::nextGamma(const quint64 amount)
 {
-    static int x = 0;
     for(quint64 i = 0; i < amount; i++)
     {
-        quint32 low = gamma & 0x00000000FFFFFFFF;
+        quint32 low = gamma & 0xFFFFFFFF;
         quint32 high = gamma >> 32;
-        gamma = static_cast<quint64>(high) + 0x1010104;
+        high += C2;
+        if(high < C2)
+            high++;
+        low += C1;
+        if(low < C1)
+            low++;
         if(gamma > 0xFFFFFFFE)
             gamma += 1;
-        low += 0x1010101;
-        gamma <<= 32;
-        gamma |= low;
-        x++;
+        low += C1;
+        gamma = high;
+        gamma = gamma << 32 | low;
     }    
     return gamma;
 }

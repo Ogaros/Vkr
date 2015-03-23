@@ -25,11 +25,12 @@ public:
     QByteArray generateInitVector();
 
 private:
-    quint64 coreStep(const quint64 block, const int keyPart) const;
+    inline quint64 replaceAndRotate(quint32 block) const;
     quint64 core32Encrypt(quint64 block) const;
     quint64 core32Decrypt(quint64 block) const;
     quint64 xorEncrypt(quint64 block);
     quint64 xorDecrypt(quint64 block);
+    void fillOptimizedRepTable();
     void fillGammaBatch(const int batchSize);    
 
     const int blockSize = 8;
@@ -50,6 +51,7 @@ private:
                                       {0x4, 0xB, 0xA, 0x0, 0x7, 0x2, 0x1, 0xD, 0x3, 0x6, 0x8, 0x5, 0x9, 0xC, 0xF, 0xE}, // 5
                                       {0xD, 0xB, 0x4, 0x1, 0x3, 0xF, 0x5, 0x9, 0x0, 0xA, 0xE, 0x7, 0x6, 0x8, 0x2, 0xC}, // 6
                                       {0x1, 0xF, 0xD, 0x0, 0x5, 0x7, 0xA, 0x4, 0x9, 0x2, 0x3, 0xE, 0x6, 0xB, 0x8, 0xC}};// 7
+    quint8 repTableOptimized[4][256];
 
 signals:
     void readyToRelease();
