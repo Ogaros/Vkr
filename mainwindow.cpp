@@ -102,7 +102,7 @@ void MainWindow::encrypt()
     connect(&combiner, SIGNAL(fileProcessed()), pb, SLOT(addOne()));
     connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
     connect(&combiner, SIGNAL(processingFinished()), pb, SLOT(finish()));
-    QtConcurrent::run(&combiner, &Combiner::combineReverse, QString(item->data(0, Qt::UserRole).toString()));
+    QtConcurrent::run(&combiner, &Combiner::combine, QString(item->data(0, Qt::UserRole).toString()));
 }
 
 void MainWindow::decrypt()
@@ -114,5 +114,5 @@ void MainWindow::decrypt()
     connect(&combiner, SIGNAL(fileProcessed()), pb, SLOT(addOne()));
     connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
     connect(&combiner, SIGNAL(processingFinished()), pb, SLOT(finish()));
-    QtConcurrent::run(&combiner, &Combiner::separateReverse, QString(item->data(0, Qt::UserRole).toString()));
+    QtConcurrent::run(&combiner, &Combiner::separate, QString(item->data(0, Qt::UserRole).toString()));
 }

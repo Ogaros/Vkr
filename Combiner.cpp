@@ -1,7 +1,7 @@
 #include "Combiner.h"
 
 const QString Combiner::containerName = "Encrypted.data";
-const int Combiner::blockSize = 32 * 1024 * 1024; // 256 MB
+const int Combiner::batchSize = 32 * 1024 * 1024; // 256 MB
 
 Combiner::Combiner(QObject *parent) : QObject(parent)
 {
@@ -50,44 +50,6 @@ void Combiner::fillFileList(const QString &path)
 void Combiner::combine(const QString &path)
 {
     fileList.clear();
-    fillFileList(path);
-    if(fileList.empty())
-        throw std::runtime_error("No files to encrypt");
-    emit filesCounted(fileList.size());
-
-    XmlSaveLoad xml;
-    qint64 xmlSize;
-    try{xmlSize = xml.saveFileListAsXml(fileList, path);}
-    catch(...){throw;}
-
-    fileList.emplace_front(path, xml.getFileName(), 0, 0);
-    currentFileIter = fileList.begin();
-
-    QFile containerFile(path + containerName);
-    if(!containerFile.open(QIODevice::WriteOnly))
-        throw std::runtime_error("Failed to open container file");
-
-    QByteArray block;
-    size_t blockSize = algorithm.getBlockSize();
-    try
-    {        
-        block.setNum(xmlSize);
-        if(static_cast<size_t>(block.size()) < blockSize)
-            block.prepend(QByteArray(blockSize - static_cast<size_t>(block.size()), 0));
-        do
-        {
-            containerFile.write(block);
-        }
-        while(!(block = getBlock(blockSize)).isEmpty());
-    }
-    catch(...){throw;}
-    containerFile.flush();
-    containerFile.close();
-}
-
-void Combiner::combineReverse(const QString &path)
-{
-    fileList.clear();
     devicePath = path;
     fillFileList(devicePath);
     if(fileList.empty())
@@ -100,27 +62,27 @@ void Combiner::combineReverse(const QString &path)
     if(!containerFile.open(QIODevice::WriteOnly))
         throw std::runtime_error("Failed to open container file");
 
-    QByteArray block;
+    QByteArray batch;
     currentFile.reset(nullptr);
     QByteArray initVector = algorithm.generateInitVector();
     try
     {
         do
         {
-            block = getBlockReverse(blockSize);
-            encryptBlock(block);
-            containerFile.write(block);
+            batch = getBatch(batchSize);
+            encryptBatch(batch);
+            containerFile.write(batch);
         }
-        while(block.size() == blockSize);
+        while(batch.size() == batchSize);
     }
     catch(...){throw;}
 
     qint64 xmlSize = fileList.back().size;
 
-    block.setNum(xmlSize);
-    if(block.size() < 8) // xml size takes 8 bytes
-        block.prepend(QByteArray(8 - block.size(), '0'));
-    containerFile.write(algorithm.encrypt(block));
+    batch.setNum(xmlSize);
+    if(batch.size() < 8) // xml size takes 8 bytes
+        batch.prepend(QByteArray(8 - batch.size(), '0'));
+    containerFile.write(algorithm.encrypt(batch));
 
     containerFile.write(initVector);
 
@@ -129,7 +91,7 @@ void Combiner::combineReverse(const QString &path)
     emit processingFinished();
 }
 
-void Combiner::separateReverse(const QString &path)
+void Combiner::separate(const QString &path)
 {
     devicePath = path;
     fileList.clear();
@@ -137,68 +99,30 @@ void Combiner::separateReverse(const QString &path)
     if(!containerFile.open(QIODevice::ReadWrite))
         throw std::runtime_error("Failed to open container file");
 
-    QByteArray block;
-    int algBlockSize = algorithm.getBlockSize();
+    QByteArray batch;
+    int blockSize = algorithm.getBlockSize();
 
-    block = getBlockFromContainerReverse(algBlockSize, containerFile);
-    algorithm.setInitVector(block);
-    algorithm.setupGamma(containerFile.size(), blockSize);
+    batch = getBatchFromContainer(blockSize, containerFile);
+    algorithm.setInitVector(batch);
+    algorithm.setupGamma(containerFile.size(), batchSize);
 
-    block = getBlockFromContainerReverse(8, containerFile);
-    block = algorithm.decrypt(block);
-    fileList.emplace_back("", XmlSaveLoad::getFileName(), block.toULongLong(), block.toULongLong());
-    block = getBlockFromContainerReverse(containerFile.size() % blockSize, containerFile);
-    decryptBlock(block);
+    batch = getBatchFromContainer(8, containerFile);
+    batch = algorithm.decrypt(batch);
+    fileList.emplace_back("", XmlSaveLoad::getFileName(), batch.toULongLong(), batch.toULongLong());
+    batch = getBatchFromContainer(containerFile.size() % batchSize, containerFile);
+    decryptBatch(batch);
     QDir dir(devicePath);
     for(currentFileIter = fileList.begin(); currentFileIter != fileList.end(); currentFileIter++)
     {
-        restoreFile(block, containerFile, dir);
+        restoreFile(batch, containerFile, dir);
     }
     containerFile.remove();
     emit processingFinished();
 }
 
-QByteArray Combiner::getBlock(const int &size)
+QByteArray Combiner::getBatch(const int &size)
 {
-    QByteArray block;
-    if(currentFile == nullptr)
-    {
-        try {openCurrentFile();}
-        catch(...){throw;}
-    }
-    block = currentFile->read(size);
-    if(block.size() < size)
-    {        
-        currentFileIter++;
-        if(currentFileIter != fileList.end())
-        {
-            emit fileProcessed();
-            currentFile->close();            
-            try {openCurrentFile();}
-            catch(...){throw;}
-            block.append(getBlock(size - block.size()));
-        }
-        else
-        {
-            currentFileIter--;
-            if(!block.isEmpty())
-            {
-                emit fileProcessed();
-                block.append(QByteArray(size - block.size(), 0));
-            }
-            else
-            {
-                currentFile->close();
-                currentFile.reset(nullptr);
-            }
-        }
-    }
-    return block;
-}
-
-QByteArray Combiner::getBlockReverse(const int &size)
-{
-    QByteArray block;
+    QByteArray batch;
     if(currentFile == nullptr)
     {
         try {openCurrentFile();}
@@ -210,7 +134,7 @@ QByteArray Combiner::getBlockReverse(const int &size)
         emit fileProcessed();
         currentFileIter->firstBlockSize = fileSize;
         currentFile->seek(0);
-        block = currentFile->read(fileSize);
+        batch = currentFile->read(fileSize);
         while(currentFile->exists())
             currentFile->remove();
 
@@ -220,7 +144,7 @@ QByteArray Combiner::getBlockReverse(const int &size)
         currentFileIter++;
         if(currentFileIter != fileList.end())
         {
-            block.append(getBlockReverse(size - block.size()));
+            batch.append(getBatch(size - batch.size()));
         }
         else
         {
@@ -230,7 +154,7 @@ QByteArray Combiner::getBlockReverse(const int &size)
                 try{saveFileList();}
                 catch(...){throw;}
                 currentFileIter++;
-                block.append(getBlockReverse(size - block.size()));
+                batch.append(getBatch(size - batch.size()));
             }
             else
                 currentFileIter++;
@@ -240,22 +164,22 @@ QByteArray Combiner::getBlockReverse(const int &size)
     {
         qint64 newSize = fileSize - size;
         currentFile->seek(newSize);
-        block = currentFile->read(size);
+        batch = currentFile->read(size);
         currentFile->resize(newSize);
     }
-    return block;
+    return batch;
 }
 
-QByteArray Combiner::getBlockFromContainerReverse(const int &size, QFile &containerFile)
+QByteArray Combiner::getBatchFromContainer(const int &size, QFile &containerFile)
 {
-    QByteArray block;
+    QByteArray batch;
     qint64 newSize = containerFile.size() - size;
     if(newSize < 0)
         newSize = 0;
     containerFile.seek(newSize);
-    block = containerFile.read(size);
+    batch = containerFile.read(size);
     containerFile.resize(newSize);
-    return block;
+    return batch;
 }
 
 void Combiner::openCurrentFile()
@@ -267,25 +191,25 @@ void Combiner::openCurrentFile()
         throw std::runtime_error("Failed to open " + filePath.toStdString());
 }
 
-void Combiner::encryptBlock(QByteArray &block)
+void Combiner::encryptBatch(QByteArray &batch)
 {
-    int algBlockSize = algorithm.getBlockSize();
-    for(int i = 0; i < block.size(); i += algBlockSize)
+    int blockSize = algorithm.getBlockSize();
+    for(int i = 0; i < batch.size(); i += blockSize)
     {
-        block.replace(i, algBlockSize, algorithm.encrypt(block.mid(i, algBlockSize)));
+        batch.replace(i, blockSize, algorithm.encrypt(batch.mid(i, blockSize)));
     }
 }
 
-void Combiner::decryptBlock(QByteArray &block)
+void Combiner::decryptBatch(QByteArray &batch)
 {
-    int algBlockSize = algorithm.getBlockSize();
-    int firstBlockSize = block.size() % algBlockSize;
+    int blockSize = algorithm.getBlockSize();
+    int firstBlockSize = batch.size() % blockSize;
     if(firstBlockSize == 0)
-        firstBlockSize = algBlockSize;
-    block.replace(block.size() - firstBlockSize, algBlockSize, algorithm.decrypt(block.right(firstBlockSize)));
-    for(int i = block.size() - firstBlockSize - algBlockSize; i >= 0; i -= algBlockSize)
+        firstBlockSize = blockSize;
+    batch.replace(batch.size() - firstBlockSize, blockSize, algorithm.decrypt(batch.right(firstBlockSize)));
+    for(int i = batch.size() - firstBlockSize - blockSize; i >= 0; i -= blockSize)
     {
-        block.replace(i, algBlockSize, algorithm.decrypt(block.mid(i, algBlockSize)));
+        batch.replace(i, blockSize, algorithm.decrypt(batch.mid(i, blockSize)));
     }
 }
 
@@ -307,7 +231,7 @@ void Combiner::removeCurrentFileDir()
     }
 }
 
-void Combiner::restoreFile(QByteArray &block, QFile &containerFile, const QDir &dir)
+void Combiner::restoreFile(QByteArray &batch, QFile &containerFile, const QDir &dir)
 {
     qint64 currentSize = 0;
     qint64 fileSize = currentFileIter->size;
@@ -318,17 +242,17 @@ void Combiner::restoreFile(QByteArray &block, QFile &containerFile, const QDir &
     catch(...){throw;}
     while(true)
     {
-        if(block.isEmpty())
+        if(batch.isEmpty())
         {
-            block = getBlockFromContainerReverse(blockSize, containerFile);
-            if(block.isEmpty())
+            batch = getBatchFromContainer(batchSize, containerFile);
+            if(batch.isEmpty())
             {
                 emit fileProcessed();
                 break;
             }
-            decryptBlock(block);
+            decryptBatch(batch);
         }
-        currentSize += block.size();
+        currentSize += batch.size();
         if(currentSize <= fileSize)
         {
             qint64 firstBlockSize = currentFileIter->firstBlockSize;
@@ -336,18 +260,18 @@ void Combiner::restoreFile(QByteArray &block, QFile &containerFile, const QDir &
             {
                 if(currentFile->size() == 0)
                 {
-                    currentFile->write(block.right(firstBlockSize));
-                    block = block.left(block.size() - firstBlockSize);
+                    currentFile->write(batch.right(firstBlockSize));
+                    batch = batch.left(batch.size() - firstBlockSize);
                 }
             }
-            currentFile->write(block);
-            block.clear();
+            currentFile->write(batch);
+            batch.clear();
         }
         else
         {
-            qint64 blockPadding = currentSize - fileSize;
-            currentFile->write(block.right(block.size() - blockPadding));
-            block = block.left(blockPadding);
+            qint64 batchPadding = currentSize - fileSize;
+            currentFile->write(batch.right(batch.size() - batchPadding));
+            batch = batch.left(batchPadding);
             if(currentFileIter == fileList.begin())
             {
                 currentFile->flush();
