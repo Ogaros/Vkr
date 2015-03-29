@@ -89,7 +89,6 @@ void MainWindow::openSelectedDir()
     if(!deviceSelectionCheck("You must select a device to open"))
         return;
     QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
-    QString path = item->data(0, Qt::UserRole).toString();
     QDesktopServices::openUrl(QUrl("file:///" + item->data(0, Qt::UserRole).toString()));
 }
 
