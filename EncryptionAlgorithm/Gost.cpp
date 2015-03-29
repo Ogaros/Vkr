@@ -67,7 +67,6 @@ bool Gost::setInitVector(QByteArray newInitVector)
             gamma <<= 8;
             gamma |= static_cast<quint8>(newInitVector[i]);
         }
-        gamma = core32Encrypt(gamma);
         return true;
     }
     else
@@ -129,15 +128,6 @@ quint64 Gost::core32Encrypt(quint64 block) const
 
 quint64 Gost::core32Decrypt(quint64 block) const
 {
-//    for(int i = 0; i < 8; i++)
-//    {
-//        block = coreStep(block, i);
-//    }
-//    for(int i = 23; i >= 0; i--)
-//    {
-//        block = coreStep(block, i % 8);
-//    }
-//    block = (block << 32) | (block >> 32);
     return block;
 }
 
@@ -150,15 +140,42 @@ quint64 Gost::xorEncrypt(quint64 block)
 
 quint64 Gost::xorDecrypt(quint64 block)
 {
-    mutex.lock();
 
     if(currentGammaIter == gammaBatch.rend())
         fillGammaBatch(batchSize);
     quint64 currentGamma = *currentGammaIter++;
 
-    mutex.unlock();
     quint64 temp = core32Encrypt(currentGamma);
     return block ^ temp;
+}
+
+void Gost::experimentalEncrypt(char *data, int size)
+{
+    quint64 block = 0;
+    int bytesLeft;
+    for(int i = 0; i < size; i += blockSize)
+    {
+        block = 0;
+        bytesLeft = size - i < 8 ? size - i : 8;
+        memcpy(&block, &data[i], bytesLeft);
+        block = xorEncrypt(block);
+        memcpy(&data[i], &block, bytesLeft);
+    }
+}
+
+void Gost::experimentalDecrypt(char *data, int size)
+{
+    quint64 block = 0;
+    int bytesLeft;
+    int i = size % blockSize != 0 ? size - (size % blockSize) : size - blockSize;
+    for(; i >= 0; i -= blockSize)
+    {
+        block = 0;
+        bytesLeft = size - i < 8 ? size - i : 8;
+        memcpy(&block, &data[i], bytesLeft);
+        block = xorDecrypt(block);
+        memcpy(&data[i], &block, bytesLeft);
+    }
 }
 
 void Gost::fillOptimizedRepTable()
@@ -193,15 +210,10 @@ quint64 Gost::nextGamma(const quint64 amount)
     {
         quint32 low = gamma & 0xFFFFFFFF;
         quint32 high = gamma >> 32;
-        high += C2;
-        if(high < C2)
+        high += C1;
+        if(high < C1)
             high++;
-        low += C1;
-        if(low < C1)
-            low++;
-        if(gamma > 0xFFFFFFFE)
-            gamma += 1;
-        low += C1;
+        low += C2;
         gamma = high;
         gamma = gamma << 32 | low;
     }    
@@ -241,8 +253,6 @@ QByteArray Gost::generateInitVector()
         v[i] = temp & 0xFF;
         temp >>= 8;
     }
-
-    gamma = core32Encrypt(gamma);
 
     return v;
 }

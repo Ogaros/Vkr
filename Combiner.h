@@ -13,6 +13,7 @@
 #include <EncryptionAlgorithm/Gost.h>
 #include <FileObject.h>
 #include <XmlSaveLoad.h>
+#include <QDebug>
 
 using FileList = std::list<FileObject>;
 

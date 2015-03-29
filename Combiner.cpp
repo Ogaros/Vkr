@@ -1,7 +1,7 @@
 #include "Combiner.h"
 
 const QString Combiner::containerName = "Encrypted.data";
-const int Combiner::batchSize = 32 * 1024 * 1024; // 256 MB
+const int Combiner::batchSize = 256 * 1024 * 1024; // 256 MB
 
 Combiner::Combiner(QObject *parent) : QObject(parent)
 {
@@ -82,7 +82,8 @@ void Combiner::combine(const QString &path)
     batch.setNum(xmlSize);
     if(batch.size() < 8) // xml size takes 8 bytes
         batch.prepend(QByteArray(8 - batch.size(), '0'));
-    containerFile.write(algorithm.encrypt(batch));
+    algorithm.experimentalEncrypt(batch.data(), batch.size());
+    containerFile.write(batch);
 
     containerFile.write(initVector);
 
@@ -107,8 +108,9 @@ void Combiner::separate(const QString &path)
     algorithm.setupGamma(containerFile.size(), batchSize);
 
     batch = getBatchFromContainer(8, containerFile);
-    batch = algorithm.decrypt(batch);
+    algorithm.experimentalDecrypt(batch.data(), batch.size());
     fileList.emplace_back("", XmlSaveLoad::getFileName(), batch.toULongLong(), batch.toULongLong());
+    // TODO: Decrypt XML first
     batch = getBatchFromContainer(containerFile.size() % batchSize, containerFile);
     decryptBatch(batch);
     QDir dir(devicePath);
@@ -193,24 +195,12 @@ void Combiner::openCurrentFile()
 
 void Combiner::encryptBatch(QByteArray &batch)
 {
-    int blockSize = algorithm.getBlockSize();
-    for(int i = 0; i < batch.size(); i += blockSize)
-    {
-        batch.replace(i, blockSize, algorithm.encrypt(batch.mid(i, blockSize)));
-    }
+    algorithm.experimentalEncrypt(batch.data(), batch.size());
 }
 
 void Combiner::decryptBatch(QByteArray &batch)
 {
-    int blockSize = algorithm.getBlockSize();
-    int firstBlockSize = batch.size() % blockSize;
-    if(firstBlockSize == 0)
-        firstBlockSize = blockSize;
-    batch.replace(batch.size() - firstBlockSize, blockSize, algorithm.decrypt(batch.right(firstBlockSize)));
-    for(int i = batch.size() - firstBlockSize - blockSize; i >= 0; i -= blockSize)
-    {
-        batch.replace(i, blockSize, algorithm.decrypt(batch.mid(i, blockSize)));
-    }
+    algorithm.experimentalDecrypt(batch.data(), batch.size());
 }
 
 void Combiner::saveFileList()
