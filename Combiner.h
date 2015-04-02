@@ -35,7 +35,6 @@ private:
     void openCurrentFile();
     void encryptBatch(QByteArray &batch);
     void decryptBatch(QByteArray &batch);
-    void saveFileList();
     void removeCurrentFileDir();
     void restoreFile(QByteArray &batch, QFile &containerFile, const QDir &dir);
     void decryptXmlAndFillFileList(QFile &containerFile);
