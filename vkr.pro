@@ -15,14 +15,12 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    EncryptionAlgorithm/EncryptionAlgorithm.cpp \
     Combiner.cpp \
     XmlSaveLoad.cpp \
     progressbardialog.cpp \
     EncryptionAlgorithm/Gost.cpp \
 
 HEADERS  += mainwindow.h \
-    EncryptionAlgorithm/EncryptionAlgorithm.h \
     Combiner.h \
     XmlSaveLoad.h \
     progressbardialog.h \
