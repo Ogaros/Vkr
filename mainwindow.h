@@ -1,7 +1,9 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 
 #include <QMainWindow>
 #include <vector>
