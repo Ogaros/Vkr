@@ -1,11 +1,13 @@
 #include "Combiner.h"
 
 const QString Combiner::containerName = "Encrypted.data";
+const QString Combiner::keyFileName = "Vkr.key";
 const int Combiner::batchSize = 256 * 1024 * 1024; // 256 MB
+const QByteArray Combiner::baseKey = "h47skro;,sng89o3sy6ha2qwn89sk.er";
 
 Combiner::Combiner(QObject *parent) : QObject(parent)
 {
-    algorithm.setKey("h47skro;,sng89o3sy6ha2qwn89sk.er");
+
 }
 
 Combiner::~Combiner()
@@ -50,7 +52,8 @@ void Combiner::fillFileList(const QString &path)
 void Combiner::combine(const QString &path)
 {
     fileList.clear();
-    devicePath = path;
+    devicePath = path;    
+    loadEncryptionKey();
     fillFileList(devicePath);
     if(fileList.empty())
         throw std::runtime_error("No files to encrypt");
@@ -97,6 +100,7 @@ void Combiner::separate(const QString &path)
 {
     devicePath = path;
     fileList.clear();
+    loadEncryptionKey();
     QFile containerFile(devicePath + containerName);
     if(!containerFile.open(QIODevice::ReadWrite))
         throw std::runtime_error("Failed to open container file");
@@ -106,7 +110,7 @@ void Combiner::separate(const QString &path)
 
     batch = getBatchFromContainer(blockSize, containerFile);
     algorithm.setInitVector(batch);
-    algorithm.setupGamma(containerFile.size(), batchSize);
+    algorithm.setupGamma(containerFile.size());
 
     decryptXmlAndFillFileList(containerFile);
 	if (containerFile.size() % batchSize)
@@ -269,6 +273,20 @@ void Combiner::decryptXmlAndFillFileList(QFile &containerFile)
     xml.loadFileListFromXml(fileList, &file);
     file.remove();
     emit filesCounted(fileList.size());
+}
+
+void Combiner::loadEncryptionKey()
+{
+    QString str = QCoreApplication::applicationDirPath();
+    QFile file(str + "/" + keyFileName);
+    file.open(QIODevice::ReadOnly);
+    QByteArray key = file.readAll();
+    file.close();
+    if(key.size() * 8 != 256)
+        throw std::runtime_error("Key is damaged");
+    algorithm.setKey(baseKey);
+    algorithm.decryptKey(key);
+    algorithm.setKey(key);
 }
 
 qint64 Combiner::encryptXml(QFile &container)

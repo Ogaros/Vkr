@@ -1,7 +1,9 @@
 #ifndef COMBINER_H
 #define COMBINER_H
 
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 
 #include <QObject>
 #include <list>
@@ -16,6 +18,7 @@
 #include <FileObject.h>
 #include <XmlSaveLoad.h>
 #include <QDebug>
+#include <QCoreApplication>
 
 using FileList = std::list<FileObject>;
 
@@ -38,6 +41,7 @@ private:
     void removeCurrentFileDir();
     void restoreFile(QByteArray &batch, QFile &containerFile, const QDir &dir);
     void decryptXmlAndFillFileList(QFile &containerFile);
+    void loadEncryptionKey();
     qint64 encryptXml(QFile &container);
     Gost algorithm;
     std::unique_ptr<QFile> currentFile;
@@ -46,6 +50,8 @@ private:
     QString devicePath;
     static const QString containerName;
     static const int batchSize;
+    static const QString keyFileName;
+    static const QByteArray baseKey;
 
 signals:
     void fileProcessed();
