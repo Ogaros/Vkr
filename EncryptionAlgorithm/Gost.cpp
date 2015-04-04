@@ -10,46 +10,24 @@ quint8 Gost::replacementTable[8][16] = { { 0x4, 0xA, 0x9, 0x2, 0xD, 0x8, 0x0, 0x
 										 { 0xD, 0xB, 0x4, 0x1, 0x3, 0xF, 0x5, 0x9, 0x0, 0xA, 0xE, 0x7, 0x6, 0x8, 0x2, 0xC },  // 6
 										 { 0x1, 0xF, 0xD, 0x0, 0x5, 0x7, 0xA, 0x4, 0x9, 0x2, 0x3, 0xE, 0x6, 0xB, 0x8, 0xC } };// 7
 
+const int Gost::gammaBatchSize = 256 * 1024 * 1024; // 32 MB
+
 Gost::Gost(QObject *parent) : QObject(parent)
 {
     fillOptimizedRepTable();
 }
 
-QByteArray Gost::encrypt(QByteArray data)
+void Gost::decryptKey(QByteArray &data)
 {
-    quint64 temp = 0;
-    for(int i = 0; i < data.size(); i++)
+    quint64 block;
+    char *dataPtr = data.data();
+    for(int i = 0; i < data.size(); i += blockSize)
     {
-        temp <<= 8;
-        temp |= static_cast<quint8>(data[i]);
+        block = 0;
+        memcpy(&block, &dataPtr[i], blockSize);
+        block = core32Decrypt(block);
+        memcpy(&dataPtr[i], &block, blockSize);
     }
-    temp = xorEncrypt(temp);
-    data.fill(0);
-    for(int i = data.size() - 1; i >= 0; i--)
-    {
-        data[i] = temp & 0xFF;
-        temp >>= 8;
-    }
-    emit readyToRelease();
-    return data;
-}
-
-QByteArray Gost::decrypt(QByteArray data)
-{
-    quint64 temp = 0;
-    for(int i = 0; i < data.size(); i++)
-    {
-        temp <<= 8;
-        temp |= static_cast<quint8>(data[i]);
-    }
-    temp = xorDecrypt(temp);
-    data.fill(0);
-    for(int i = data.size() - 1; i >= 0; i--)
-    {
-        data[i] = temp & 0xFF;
-        temp >>= 8;
-    }
-    return data;
 }
 
 bool Gost::setKey(QByteArray newKey)
@@ -138,25 +116,62 @@ quint64 Gost::core32Encrypt(quint64 block) const
 
 quint64 Gost::core32Decrypt(quint64 block) const
 {
-    return block;
+    quint32 n1 = block & 0xFFFFFFFF;
+    quint32 n2 = block >> 32;
+
+    n2 ^= replaceAndRotate(n1 + key[0]);
+    n1 ^= replaceAndRotate(n2 + key[1]);
+    n2 ^= replaceAndRotate(n1 + key[2]);
+    n1 ^= replaceAndRotate(n2 + key[3]);
+    n2 ^= replaceAndRotate(n1 + key[4]);
+    n1 ^= replaceAndRotate(n2 + key[5]);
+    n2 ^= replaceAndRotate(n1 + key[6]);
+    n1 ^= replaceAndRotate(n2 + key[7]);
+
+    n2 ^= replaceAndRotate(n1 + key[7]);
+    n1 ^= replaceAndRotate(n2 + key[6]);
+    n2 ^= replaceAndRotate(n1 + key[5]);
+    n1 ^= replaceAndRotate(n2 + key[4]);
+    n2 ^= replaceAndRotate(n1 + key[3]);
+    n1 ^= replaceAndRotate(n2 + key[2]);
+    n2 ^= replaceAndRotate(n1 + key[1]);
+    n1 ^= replaceAndRotate(n2 + key[0]);
+
+    n2 ^= replaceAndRotate(n1 + key[7]);
+    n1 ^= replaceAndRotate(n2 + key[6]);
+    n2 ^= replaceAndRotate(n1 + key[5]);
+    n1 ^= replaceAndRotate(n2 + key[4]);
+    n2 ^= replaceAndRotate(n1 + key[3]);
+    n1 ^= replaceAndRotate(n2 + key[2]);
+    n2 ^= replaceAndRotate(n1 + key[1]);
+    n1 ^= replaceAndRotate(n2 + key[0]);
+
+    n2 ^= replaceAndRotate(n1 + key[7]);
+    n1 ^= replaceAndRotate(n2 + key[6]);
+    n2 ^= replaceAndRotate(n1 + key[5]);
+    n1 ^= replaceAndRotate(n2 + key[4]);
+    n2 ^= replaceAndRotate(n1 + key[3]);
+    n1 ^= replaceAndRotate(n2 + key[2]);
+    n2 ^= replaceAndRotate(n1 + key[1]);
+    n1 ^= replaceAndRotate(n2 + key[0]);
+
+    block = n2;
+    return block << 32 | n1;
 }
 
 quint64 Gost::xorEncrypt(quint64 block)
 {
-    quint64 vector = nextGamma(1);
-    vector = core32Encrypt(vector);
-    return block ^ vector;
+    quint64 encrGamma = core32Encrypt(nextGamma(1));
+    return block ^ encrGamma;
 }
 
 quint64 Gost::xorDecrypt(quint64 block)
 {
-
     if(currentGammaIter == gammaBatch.rend())
-        fillGammaBatch(batchSize);
-    quint64 currentGamma = *currentGammaIter++;
+        fillGammaBatch(gammaBatchSize);
 
-    quint64 temp = core32Encrypt(currentGamma);
-    return block ^ temp;
+    quint64 encrGamma = core32Encrypt(*currentGammaIter++);
+    return block ^ encrGamma;
 }
 
 void Gost::experimentalEncrypt(char *data, int size)
@@ -230,21 +245,20 @@ quint64 Gost::nextGamma(const quint64 amount)
     return gamma;
 }
 
-void Gost::setupGamma(qint64 containerSize, int batchSize)
+void Gost::setupGamma(qint64 containerSize)
 {
-    this->batchSize = batchSize;
     gammaCheckpoints.clear();
     currentGammaCheckpoint = 0;
-    int lastBatchSize = containerSize % batchSize;
+    int lastBatchSize = containerSize % gammaBatchSize;
     if(lastBatchSize == 0)
-        lastBatchSize = batchSize;
-    int batchesAmount = containerSize / batchSize;
-    if(lastBatchSize != batchSize)
+        lastBatchSize = gammaBatchSize;
+    int batchesAmount = containerSize / gammaBatchSize;
+    if(lastBatchSize != gammaBatchSize)
         batchesAmount++;
     gammaCheckpoints.push_back(gamma);
     for(int i = 1; i < batchesAmount; i++)
     {
-        gammaCheckpoints.push_back(nextGamma(ceil((double)batchSize / (double)blockSize)));
+        gammaCheckpoints.push_back(nextGamma(ceil((double)gammaBatchSize / (double)blockSize)));
     }
     currentGammaCheckpoint = gammaCheckpoints.size() - 1;
     fillGammaBatch(lastBatchSize);

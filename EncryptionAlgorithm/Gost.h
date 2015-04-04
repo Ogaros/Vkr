@@ -15,8 +15,7 @@ class Gost : public QObject
     Q_OBJECT
 public:    
     explicit Gost(QObject *parent = 0);
-    QByteArray encrypt(QByteArray data);
-    QByteArray decrypt(QByteArray data);
+    void decryptKey(QByteArray &data);
     int getBlockSize(){return blockSize;}
     bool setKey(QByteArray newKey);
     bool setInitVector(QByteArray newInitVector);
@@ -24,7 +23,7 @@ public:
     void experimentalDecrypt(char *data, int size);
 
     quint64 nextGamma(const quint64 amount);
-    void setupGamma(qint64 containerSize, int blockSize);
+    void setupGamma(qint64 containerSize);
     QByteArray generateInitVector();
     quint64 gamma;
 
@@ -45,10 +44,10 @@ private:
     std::vector<quint64> gammaBatch;
     std::vector<quint64>::reverse_iterator currentGammaIter;
     int currentGammaCheckpoint;
-    int batchSize;
     QMutex mutex;
 	static quint8 replacementTable[8][16];
     quint8 repTableOptimized[4][256];
+    static const int gammaBatchSize;
 
 signals:
     void readyToRelease();
