@@ -42,7 +42,7 @@ private:
     quint32 key[8];
     std::vector<quint64> gammaCheckpoints;
     std::vector<quint64> gammaBatch;
-    std::vector<quint64>::reverse_iterator currentGammaIter;
+    int currentGammaIndex;
     int currentGammaCheckpoint;
     QMutex mutex;
 	static quint8 replacementTable[8][16];

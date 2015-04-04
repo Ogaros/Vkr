@@ -167,10 +167,10 @@ quint64 Gost::xorEncrypt(quint64 block)
 
 quint64 Gost::xorDecrypt(quint64 block)
 {
-    if(currentGammaIter == gammaBatch.rend())
+    if(currentGammaIndex < 0)
         fillGammaBatch(gammaBatchSize);
 
-    quint64 encrGamma = core32Encrypt(*currentGammaIter++);
+    quint64 encrGamma = core32Encrypt(gammaBatch.at(currentGammaIndex--));
     return block ^ encrGamma;
 }
 
@@ -223,7 +223,7 @@ void Gost::fillGammaBatch(const int size)
     {
         gammaBatch.push_back(nextGamma(1));
     }
-    currentGammaIter = gammaBatch.rbegin();
+    currentGammaIndex = gammaBatch.size() - 1;
 }
 
 #define C1 0x01010104
