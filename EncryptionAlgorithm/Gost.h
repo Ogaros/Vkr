@@ -21,6 +21,7 @@ public:
     bool setInitVector(QByteArray newInitVector);
     void experimentalEncrypt(char *data, int size);
     void experimentalDecrypt(char *data, int size);
+    void clearGammaArrays();
 
     quint64 nextGamma(const quint64 amount);
     void setupGamma(qint64 containerSize);

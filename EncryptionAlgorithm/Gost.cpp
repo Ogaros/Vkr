@@ -10,7 +10,7 @@ quint8 Gost::replacementTable[8][16] = { { 0x4, 0xA, 0x9, 0x2, 0xD, 0x8, 0x0, 0x
 										 { 0xD, 0xB, 0x4, 0x1, 0x3, 0xF, 0x5, 0x9, 0x0, 0xA, 0xE, 0x7, 0x6, 0x8, 0x2, 0xC },  // 6
 										 { 0x1, 0xF, 0xD, 0x0, 0x5, 0x7, 0xA, 0x4, 0x9, 0x2, 0x3, 0xE, 0x6, 0xB, 0x8, 0xC } };// 7
 
-const int Gost::gammaBatchSize = 256 * 1024 * 1024; // 32 MB
+const int Gost::gammaBatchSize = 32 * 1024 * 1024; // 32 MB
 
 Gost::Gost(QObject *parent) : QObject(parent)
 {
@@ -203,6 +203,12 @@ void Gost::experimentalDecrypt(char *data, int size)
     }
 }
 
+void Gost::clearGammaArrays()
+{
+    gammaBatch.clear();
+    gammaCheckpoints.clear();
+}
+
 void Gost::fillOptimizedRepTable()
 {
     for(int x = 0; x < 8; x += 2)
@@ -217,7 +223,7 @@ void Gost::fillOptimizedRepTable()
 void Gost::fillGammaBatch(const int size)
 {
     gammaBatch.clear();
-    gammaBatch.reserve(size / 8);
+    gammaBatch.reserve(size / 8 + 1);
     gamma = gammaCheckpoints[currentGammaCheckpoint--];
     for(int i = 0; i < size; i += blockSize)
     {
