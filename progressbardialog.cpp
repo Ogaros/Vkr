@@ -6,6 +6,7 @@ ProgressBarDialog::ProgressBarDialog(const dialogType type, QWidget *parent) :
     ui(new Ui::ProgressBarDialog), type(type)
 {
     ui->setupUi(this);    
+    setWindowFlags(Qt::WindowSystemMenuHint);
     setAttribute(Qt::WA_DeleteOnClose);
 }
 
