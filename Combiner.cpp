@@ -2,7 +2,7 @@
 
 const QString Combiner::containerName = "Encrypted.data";
 const QString Combiner::keyFileName = "Vkr.key";
-const int Combiner::batchSize = 256 * 1024 * 1024; // 256 MB
+const int Combiner::batchSize = 100 * 1024 * 1024; // 100 MB
 const QByteArray Combiner::baseKey = "h47skro;,sng89o3sy6ha2qwn89sk.er";
 
 Combiner::Combiner(QObject *parent) : QObject(parent)
@@ -52,7 +52,7 @@ void Combiner::fillFileList(const QString &path)
 void Combiner::combine(const QString &path)
 {
     fileList.clear();
-    devicePath = path;    
+    devicePath = path;
     loadEncryptionKey();
     fillFileList(devicePath);
     if(fileList.empty())
@@ -85,14 +85,13 @@ void Combiner::combine(const QString &path)
     batch.setNum(xmlSize);
     if(batch.size() < 8) // xml size takes 8 bytes
         batch.prepend(QByteArray(8 - batch.size(), '0'));
-	qDebug() << algorithm.gamma;
-	encryptBatch(batch);
+    encryptBatch(batch);
     containerFile.write(batch);
 
     containerFile.write(initVector);
 
     containerFile.flush();
-    containerFile.close();
+    containerFile.close();	
     emit processingFinished();
 }
 
@@ -127,6 +126,7 @@ void Combiner::separate(const QString &path)
         restoreFile(batch, containerFile, dir);
     }
     containerFile.remove();
+    algorithm.clearGammaArrays();
     emit processingFinished();
 }
 
@@ -139,7 +139,6 @@ QByteArray Combiner::getBatch(const int &size)
         catch(...){throw;}
     }
     qint64 fileSize = currentFile->size();
-    qDebug() << size << " - " << currentFile->size() << " - " << currentFileIter->name;
 
     if(fileSize < size)
     {        
@@ -147,8 +146,7 @@ QByteArray Combiner::getBatch(const int &size)
         currentFileIter->firstBlockSize = fileSize;
         currentFile->seek(0);
         batch = currentFile->read(fileSize);
-        while(currentFile->exists())
-            currentFile->remove();
+        currentFile->remove();
 
         currentFile.reset(nullptr);
         removeCurrentFileDir();
@@ -184,18 +182,18 @@ void Combiner::openCurrentFile()
     QString filePath = devicePath + currentFileIter->path + currentFileIter->name;
     currentFile.reset(new QFile(filePath));    
     currentFile->setPermissions(QFileDevice::ReadUser | QFileDevice::WriteUser);
-    if(!currentFile->open(QIODevice::ReadWrite))    
+    if(!currentFile->open(QIODevice::ReadWrite | QIODevice::Unbuffered))
         throw std::runtime_error("Failed to open " + filePath.toStdString());
 }
 
 void Combiner::encryptBatch(QByteArray &batch)
 {
-    algorithm.experimentalEncrypt(batch.data(), batch.size());
+    algorithm.encrypt(batch.data(), batch.size());
 }
 
 void Combiner::decryptBatch(QByteArray &batch)
 {
-    algorithm.experimentalDecrypt(batch.data(), batch.size());
+    algorithm.decrypt(batch.data(), batch.size());
 }
 
 void Combiner::removeCurrentFileDir()
@@ -258,10 +256,10 @@ void Combiner::restoreFile(QByteArray &batch, QFile &containerFile, const QDir &
 void Combiner::decryptXmlAndFillFileList(QFile &containerFile)
 {
     QByteArray batch = getBatchFromContainer(sizeof(quint64), containerFile);
-    algorithm.experimentalDecrypt(batch.data(), batch.size());
+    algorithm.decrypt(batch.data(), batch.size());
     quint64 xmlSize = batch.toULongLong();
     batch = getBatchFromContainer(xmlSize, containerFile);
-    algorithm.experimentalDecrypt(batch.data(), batch.size());
+    algorithm.decrypt(batch.data(), batch.size());
     QString filePath = devicePath + XmlSaveLoad::getFileName();
     QFile file(filePath);
     file.setPermissions(QFileDevice::ReadUser | QFileDevice::WriteUser);
@@ -289,6 +287,30 @@ void Combiner::loadEncryptionKey()
     algorithm.setKey(key);
 }
 
+void Combiner::fillEmptySpace(QFile &containerFile, const quint64 deviceSize)
+{
+    quint64 fillingSize = deviceSize - containerFile.size() - 8;
+    quint64 containerSize = containerFile.size();
+    QByteArray filling;
+    for(quint64 s = 0; s < fillingSize; s+= 100 * 1024 * 1024)
+    {
+        containerFile.write(filling);
+    }
+    filling.setNum(containerSize);
+    if(filling.size() < 8) // xml size takes 8 bytes
+        filling.prepend(QByteArray(8 - filling.size(), '0'));
+    algorithm.encrypt(filling.data(), 8);
+    containerFile.write(filling);
+}
+
+void Combiner::removeFilling(QFile &containerFile)
+{
+    containerFile.seek(containerFile.size() - 8);
+    QByteArray containerSize = containerFile.read(8);
+    algorithm.decrypt(containerSize.data(), 8);
+    containerFile.resize(containerSize.toULongLong());
+}
+
 qint64 Combiner::encryptXml(QFile &container)
 {
     XmlSaveLoad xml;
@@ -300,6 +322,13 @@ qint64 Combiner::encryptXml(QFile &container)
     if(!file.open(QIODevice::ReadWrite))
         throw std::runtime_error("Failed to open " + filePath.toStdString());
     QByteArray batch = file.readAll();
+    int blockSize = algorithm.getBlockSize();
+    if(fileSize % blockSize)
+    {
+        int padding = blockSize - fileSize % blockSize;
+		fileSize += padding;
+        batch.append("        ", padding);
+    }
     encryptBatch(batch);
     container.write(batch);
     file.remove();

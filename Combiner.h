@@ -30,6 +30,7 @@ public:
     ~Combiner();
     void combine(const QString &path);
     void separate(const QString &path);
+    static QString getContainerName() {return containerName;}
 
 private:
     void fillFileList(const QString &path);
@@ -42,6 +43,8 @@ private:
     void restoreFile(QByteArray &batch, QFile &containerFile, const QDir &dir);
     void decryptXmlAndFillFileList(QFile &containerFile);
     void loadEncryptionKey();
+    void fillEmptySpace(QFile &containerFile, const quint64 deviceSize);
+    void removeFilling(QFile &containerFile);
     qint64 encryptXml(QFile &container);
     Gost algorithm;
     std::unique_ptr<QFile> currentFile;
