@@ -174,7 +174,7 @@ quint64 Gost::xorDecrypt(quint64 block)
     return block ^ encrGamma;
 }
 
-void Gost::experimentalEncrypt(char *data, int size)
+void Gost::encrypt(char *data, int size)
 {
     quint64 block = 0;
     int bytesLeft;
@@ -188,7 +188,7 @@ void Gost::experimentalEncrypt(char *data, int size)
     }
 }
 
-void Gost::experimentalDecrypt(char *data, int size)
+void Gost::decrypt(char *data, int size)
 {
     quint64 block = 0;
     int bytesLeft;
@@ -223,7 +223,7 @@ void Gost::fillOptimizedRepTable()
 void Gost::fillGammaBatch(const int size)
 {
     gammaBatch.clear();
-    gammaBatch.reserve(size / 8 + 1);
+	gammaBatch.reserve(size / blockSize + 1);
     gamma = gammaCheckpoints[currentGammaCheckpoint--];
     for(int i = 0; i < size; i += blockSize)
     {
@@ -236,7 +236,7 @@ void Gost::fillGammaBatch(const int size)
 #define C2 0x01010101
 
 quint64 Gost::nextGamma(const quint64 amount)
-{
+{    
     for(quint64 i = 0; i < amount; i++)
     {
         quint32 low = gamma & 0xFFFFFFFF;
@@ -264,7 +264,7 @@ void Gost::setupGamma(qint64 containerSize)
     gammaCheckpoints.push_back(gamma);
     for(int i = 1; i < batchesAmount; i++)
     {
-        gammaCheckpoints.push_back(nextGamma(ceil((double)gammaBatchSize / (double)blockSize)));
+        gammaCheckpoints.push_back(nextGamma(gammaBatchSize / blockSize));
     }
     currentGammaCheckpoint = gammaCheckpoints.size() - 1;
     fillGammaBatch(lastBatchSize);

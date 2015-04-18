@@ -19,14 +19,13 @@ public:
     int getBlockSize(){return blockSize;}
     bool setKey(QByteArray newKey);
     bool setInitVector(QByteArray newInitVector);
-    void experimentalEncrypt(char *data, int size);
-    void experimentalDecrypt(char *data, int size);
+    void encrypt(char *data, int size);
+    void decrypt(char *data, int size);
     void clearGammaArrays();
 
     quint64 nextGamma(const quint64 amount);
     void setupGamma(qint64 containerSize);
-    QByteArray generateInitVector();
-    quint64 gamma;
+    QByteArray generateInitVector();    
 
 private:
     inline quint64 replaceAndRotate(quint32 block) const;
@@ -41,6 +40,7 @@ private:
     const int blockSize = 8;
 
     quint32 key[8];
+    quint64 gamma;
     std::vector<quint64> gammaCheckpoints;
     std::vector<quint64> gammaBatch;
     int currentGammaIndex;
@@ -49,9 +49,6 @@ private:
 	static quint8 replacementTable[8][16];
     quint8 repTableOptimized[4][256];
     static const int gammaBatchSize;
-
-signals:
-    void readyToRelease();
 };
 
 #endif // GOST_H
