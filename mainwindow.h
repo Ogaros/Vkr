@@ -13,6 +13,7 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QDesktopServices>
 #include <QMessageBox>
+#include <QFile>
 #include <tuple>
 #include <iostream>
 #include <Combiner.h>
@@ -37,10 +38,14 @@ public slots:
     void encrypt();
     void decrypt();
 
+private slots:
+    void changeButtonStatus();
+    void refreshEncryptionStatus();
+
 private:
     std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> detectDevices();
     void fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> pDevices);
-    bool deviceSelectionCheck(const QString &text);
+    bool hasEncryptedContainer(const QString &devicePath);
     Ui::MainWindow *ui;
     Combiner combiner;
 };

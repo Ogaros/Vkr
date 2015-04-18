@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->encryptButton, SIGNAL(clicked()), this, SLOT(encrypt()));
     connect(ui->decryptButton, SIGNAL(clicked()), this, SLOT(decrypt()));
     connect(ui->openButton, SIGNAL(clicked()), this, SLOT(openSelectedDir()));
+    connect(ui->deviceList, SIGNAL(itemSelectionChanged()), this, SLOT(changeButtonStatus()));
 }
 
 MainWindow::~MainWindow()
@@ -57,23 +58,23 @@ void MainWindow::fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, 
         QString name = std::get<1>(pDevices->at(i));
         if(name.isEmpty())
             name = "Съемный диск";
+        // device name
         item->setData(0, Qt::DisplayRole, name + " (" + static_cast<QString>(std::get<0>(pDevices->at(i))).left(2) + ")");
-        item->setData(1, Qt::DisplayRole, QString::number(std::get<2>(pDevices->at(i))) + "(" + QString::number(std::get<3>(pDevices->at(i))) + ") MB");
-        item->setData(2, Qt::DisplayRole, "false");
+        // device capacity(availible size)
+        item->setData(1, Qt::DisplayRole, QString::number(std::get<2>(pDevices->at(i))) + "(" + QString::number(std::get<3>(pDevices->at(i))) + ") MB");        
+        // is encrypted?
+        item->setData(2, Qt::DisplayRole, hasEncryptedContainer(std::get<0>(pDevices->at(i))));
+        // device letter (D:\\)
         item->setData(0, Qt::UserRole, std::get<0>(pDevices->at(i)));
+        // device capacity
+        item->setData(1, Qt::UserRole, std::get<2>(pDevices->at(i)));
         ui->deviceList->addTopLevelItem(item);
     }
 }
 
-bool MainWindow::deviceSelectionCheck(const QString &text)
+bool MainWindow::hasEncryptedContainer(const QString &devicePath)
 {
-    if(ui->deviceList->selectedItems().isEmpty())
-    {
-        MessageBeep(MB_OK);
-        QMessageBox::warning(this, this->windowTitle(), text, QMessageBox::Ok);
-        return false;
-    }
-    return true;
+    return QFile::exists(devicePath + Combiner::getContainerName());
 }
 
 void MainWindow::refreshDeviceList()
@@ -81,37 +82,62 @@ void MainWindow::refreshDeviceList()
     ui->deviceList->clear();
     fillDeviceList(detectDevices());
     ui->deviceList->resizeColumnToContents(0);
+    // Add some space between device name and capacity
     ui->deviceList->header()->resizeSection(0, ui->deviceList->header()->sectionSize(0) + 20);
+    ui->encryptButton->setEnabled(false);
+    ui->decryptButton->setEnabled(false);
+    ui->openButton->setEnabled(false);
 }
 
 void MainWindow::openSelectedDir()
 {
-    if(!deviceSelectionCheck("You must select a device to open"))
-        return;
     QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
     QDesktopServices::openUrl(QUrl("file:///" + item->data(0, Qt::UserRole).toString()));
 }
 
 void MainWindow::encrypt()
 {
-    if(!deviceSelectionCheck("You must select a device to encrypt"))
-        return;
     QTreeWidgetItem *item = ui->deviceList->selectedItems().front();    
     ProgressBarDialog *pb = new ProgressBarDialog(ProgressBarDialog::Encryption);
     connect(&combiner, SIGNAL(fileProcessed()), pb, SLOT(addOne()));
     connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
     connect(&combiner, SIGNAL(processingFinished()), pb, SLOT(finish()));
+    connect(&combiner, SIGNAL(processingFinished()), this, SLOT(refreshEncryptionStatus()));
     QtConcurrent::run(&combiner, &Combiner::combine, QString(item->data(0, Qt::UserRole).toString()));
 }
 
 void MainWindow::decrypt()
 {
-    if(!deviceSelectionCheck("You must select an encrypted device to decrypt"))
-        return;
-    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();
+    QTreeWidgetItem *item = ui->deviceList->selectedItems().front();    
     ProgressBarDialog *pb = new ProgressBarDialog(ProgressBarDialog::Decryption);
     connect(&combiner, SIGNAL(fileProcessed()), pb, SLOT(addOne()));
     connect(&combiner, SIGNAL(filesCounted(int)), pb, SLOT(setup(int)));
     connect(&combiner, SIGNAL(processingFinished()), pb, SLOT(finish()));
+    connect(&combiner, SIGNAL(processingFinished()), this, SLOT(refreshEncryptionStatus()));
     QtConcurrent::run(&combiner, &Combiner::separate, QString(item->data(0, Qt::UserRole).toString()));
+}
+
+void MainWindow::changeButtonStatus()
+{
+    if(ui->deviceList->selectedItems().size() == 0)
+        return;
+    auto item = ui->deviceList->selectedItems().first();
+    if(item->data(2, Qt::DisplayRole).toBool())
+    {
+        ui->encryptButton->setEnabled(false);
+        ui->decryptButton->setEnabled(true);
+    }
+    else
+    {
+        ui->encryptButton->setEnabled(true);
+        ui->decryptButton->setEnabled(false);
+    }
+    ui->openButton->setEnabled(true);
+}
+
+void MainWindow::refreshEncryptionStatus()
+{
+    auto item = ui->deviceList->selectedItems().first();
+    item->setData(2, Qt::DisplayRole, hasEncryptedContainer(item->data(0, Qt::UserRole).toString()));
+    changeButtonStatus();
 }
