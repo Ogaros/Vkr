@@ -19,6 +19,8 @@
 #include <Combiner.h>
 #include <progressbardialog.h>
 #include <EncryptionAlgorithm/Gost.h>
+#include "usbSerialAdapter.h"
+#include <qmessagebox.h>
 
 namespace Ui {
 class MainWindow;
@@ -45,7 +47,8 @@ private slots:
 private:
     std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> detectDevices();
     void fillDeviceList(std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> pDevices);
-    bool hasEncryptedContainer(const QString &devicePath);
+	void checkUSBSerial();
+    bool hasEncryptedContainer(const QString &devicePath);	
     Ui::MainWindow *ui;
     Combiner combiner;
 };

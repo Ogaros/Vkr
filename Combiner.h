@@ -18,6 +18,7 @@
 #include <FileObject.h>
 #include <XmlSaveLoad.h>
 #include <QDebug>
+#include <QByteArray.h>
 #include <QCoreApplication>
 
 using FileList = std::list<FileObject>;
@@ -29,8 +30,10 @@ public:
     explicit Combiner(QObject *parent = 0);
     ~Combiner();
     void combine(const QString &path);
-    void separate(const QString &path);
+    void separate(const QString &path);	
     static QString getContainerName() {return containerName;}
+	static QString getKeyFileName() { return keyFileName; }
+	static QByteArray getBaseKey() { return baseKey; }
 
 private:
     void fillFileList(const QString &path);

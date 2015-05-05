@@ -25,7 +25,8 @@ HEADERS  += mainwindow.h \
     XmlSaveLoad.h \
     progressbardialog.h \
     FileObject.h \
-    EncryptionAlgorithm/Gost.h
+    EncryptionAlgorithm/Gost.h \
+    z_qbytearray.h
 
 FORMS    += mainwindow.ui \
     progressbardialog.ui

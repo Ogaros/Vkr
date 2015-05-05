@@ -2,7 +2,7 @@
 
 const QString Combiner::containerName = "Encrypted.data";
 const QString Combiner::keyFileName = "Vkr.key";
-const int Combiner::batchSize = 100 * 1024 * 1024; // 100 MB
+const int Combiner::batchSize = 200 * 1024 * 1024; // 100 MB
 const QByteArray Combiner::baseKey = "h47skro;,sng89o3sy6ha2qwn89sk.er";
 
 Combiner::Combiner(QObject *parent) : QObject(parent)
@@ -145,6 +145,7 @@ QByteArray Combiner::getBatch(const int &size)
         emit fileProcessed();
         currentFileIter->firstBlockSize = fileSize;
         currentFile->seek(0);
+        batch.reserve(fileSize);
         batch = currentFile->read(fileSize);
         currentFile->remove();
 
@@ -153,12 +154,17 @@ QByteArray Combiner::getBatch(const int &size)
 
         currentFileIter++;
         if(currentFileIter != fileList.end())        
-			batch.append(getBatch(size - batch.size()));
+        {
+            QByteArray temp = getBatch(size - batch.size());
+            batch.reserve(batch.size() + temp.size());
+            batch.append(temp);
+        }
     }
     else
     {
         qint64 newSize = fileSize - size;
         currentFile->seek(newSize);
+        batch.reserve(size);
         batch = currentFile->read(size);
         currentFile->resize(newSize);
     }
@@ -278,12 +284,10 @@ void Combiner::loadEncryptionKey()
     QString str = QCoreApplication::applicationDirPath();
     QFile file(str + "/" + keyFileName);
     file.open(QIODevice::ReadOnly);
-    QByteArray key = file.readAll();
+    QByteArray key(file.read(32));
     file.close();
-    if(key.size() * 8 != 256)
-        throw std::runtime_error("Key is damaged");
     algorithm.setKey(baseKey);
-    algorithm.decryptKey(key);
+    algorithm.simpleDecrypt(key);
     algorithm.setKey(key);
 }
 
@@ -306,7 +310,7 @@ void Combiner::fillEmptySpace(QFile &containerFile, const quint64 deviceSize)
 void Combiner::removeFilling(QFile &containerFile)
 {
     containerFile.seek(containerFile.size() - 8);
-    QByteArray containerSize = containerFile.read(8);
+    QByteArray containerSize(containerFile.read(8));
     algorithm.decrypt(containerSize.data(), 8);
     containerFile.resize(containerSize.toULongLong());
 }
@@ -321,7 +325,7 @@ qint64 Combiner::encryptXml(QFile &container)
     QFile file(filePath);
     if(!file.open(QIODevice::ReadWrite))
         throw std::runtime_error("Failed to open " + filePath.toStdString());
-    QByteArray batch = file.readAll();
+    QByteArray batch(file.readAll());
     int blockSize = algorithm.getBlockSize();
     if(fileSize % blockSize)
     {
@@ -335,3 +339,4 @@ qint64 Combiner::encryptXml(QFile &container)
     emit fileProcessed();
     return fileSize;
 }
+

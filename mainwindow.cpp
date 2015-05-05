@@ -5,6 +5,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
+	checkUSBSerial();
     ui->setupUi(this);
     refreshDeviceList();
     connect(ui->refreshListButton, SIGNAL(clicked()), this, SLOT(refreshDeviceList()));
@@ -23,27 +24,29 @@ std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainW
 {
     //                                     letter   name   capacity  availible
     std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> pDevices(new std::vector<std::tuple<QString, QString, size_t, size_t>>);    
+	char thisDrive = QCoreApplication::applicationFilePath().at(0).toLatin1();
     DWORD dwDrives = GetLogicalDrives();
     std::wstring path = L"A:\\";
     while(dwDrives)
         {
-            if(dwDrives & 1 && GetDriveType(path.c_str()) == DRIVE_REMOVABLE)
+            if(dwDrives & 1 && GetDriveType(path.c_str()) == DRIVE_REMOVABLE && path.c_str()[0] != thisDrive)
             {
-                wchar_t label[MAX_PATH];           
-                if(!GetVolumeInformationW(path.c_str(), label, sizeof(label), nullptr, nullptr, nullptr, nullptr, 0))
-                {
-                    std::wcerr << L"GetVolumeInformationW(" << path << L") error: " << GetLastError() << std::endl;
-                    //TODO:: add exception
-                }
-                else
-                {
-                    ULARGE_INTEGER capacity, availible;
-                    GetDiskFreeSpaceExW(path.c_str(), nullptr, &capacity, &availible);
-                    pDevices->emplace_back(QString::fromStdWString(path), QString::fromWCharArray(label),
-                                           capacity.QuadPart / (1024 * 1024), availible.QuadPart / (1024 * 1024));
-                }
-            }
-            dwDrives = dwDrives >> 1;
+				wchar_t label[MAX_PATH];
+				if (!GetVolumeInformationW(path.c_str(), label, sizeof(label), nullptr, nullptr, nullptr, nullptr, 0))
+				{
+					std::wcerr << L"GetVolumeInformationW(" << path << L") error: " << GetLastError() << std::endl;
+					//TODO:: add exception
+				}
+				else
+				{
+					ULARGE_INTEGER capacity, availible;
+					GetDiskFreeSpaceExW(path.c_str(), nullptr, &capacity, &availible);
+					pDevices->emplace_back(QString::fromStdWString(path), QString::fromWCharArray(label),
+						capacity.QuadPart / (1024 * 1024), availible.QuadPart / (1024 * 1024));
+
+				}
+			}
+			dwDrives = dwDrives >> 1;
             path[0]++;
         }
     pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\TestFolder\\", "Test folder", 0, 0);
@@ -140,4 +143,34 @@ void MainWindow::refreshEncryptionStatus()
     auto item = ui->deviceList->selectedItems().first();
     item->setData(2, Qt::DisplayRole, hasEncryptedContainer(item->data(0, Qt::UserRole).toString()));
     changeButtonStatus();
+}
+
+void MainWindow::checkUSBSerial()
+{
+	QDir dir;
+	QByteArray serialNumber(usbAdapter::getSerialNumber(dir.absolutePath().at(0).toLatin1()));	
+
+	QFile f("./" + Combiner::getKeyFileName());
+	f.open(QFile::ReadOnly);
+	f.seek(32);
+	QByteArray encryptedSerial(f.readAll());
+	f.close();
+
+	Gost g;
+	g.setKey(Combiner::getBaseKey());
+	g.simpleDecrypt(encryptedSerial);
+	int index = encryptedSerial.indexOf('\0');
+	if (index > 0)
+		encryptedSerial.resize(index);
+	if (encryptedSerial != serialNumber)
+	{
+		QMessageBox box;
+		box.setIcon(QMessageBox::Critical);
+		box.setText("You are trying to run this encryptor copy from the wrong usb device");
+		box.setStandardButtons(QMessageBox::Cancel);
+		box.setModal(Qt::ApplicationModal);
+		MessageBeep(MB_OK);
+		box.exec();
+		exit(EXIT_FAILURE);
+	}
 }
