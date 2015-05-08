@@ -162,7 +162,7 @@ void MainWindow::checkUSBSerial()
 	int index = encryptedSerial.indexOf('\0');
 	if (index > 0)
 		encryptedSerial.resize(index);
-	if (encryptedSerial != serialNumber)
+	if (encryptedSerial != serialNumber || serialNumber.size() == 0 || encryptedSerial.size() == 0)
 	{
 		QMessageBox box;
 		box.setIcon(QMessageBox::Critical);
