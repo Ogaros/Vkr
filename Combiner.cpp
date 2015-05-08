@@ -2,7 +2,7 @@
 
 const QString Combiner::containerName = "Encrypted.data";
 const QString Combiner::keyFileName = "Vkr.key";
-const int Combiner::batchSize = 200 * 1024 * 1024; // 100 MB
+const int Combiner::batchSize = 200 * 1024 * 1024; // 200 MB
 const QByteArray Combiner::baseKey = "h47skro;,sng89o3sy6ha2qwn89sk.er";
 
 Combiner::Combiner(QObject *parent) : QObject(parent)
@@ -15,8 +15,9 @@ Combiner::~Combiner()
 
 }
 
-void Combiner::fillFileList(const QString &path)
+int Combiner::fillFileList(const QString &path)
 {
+	int filesCounted = 0;
     QString sPath = path + "*.*";
     std::unique_ptr<WCHAR[]> search_path(new WCHAR[sPath.size() + 1]);
     sPath.toWCharArray(search_path.get());
@@ -30,23 +31,26 @@ void Combiner::fillFileList(const QString &path)
             QString name = QString::fromWCharArray(fd.cFileName);
             if(name != "." && name != "..")
             {
+				QString noDrivePath = path;
+				noDrivePath.replace(noDrivePath.indexOf(devicePath), devicePath.size(), "");				
                 if(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
                 {                    
-                    fillFileList(path + name + "\\");
-
+					if (QDir(path + name).entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries).count() == 0)
+						fileList.emplace_back(noDrivePath, name, -1, -1); // -1 size means it is a folder
+                    filesCounted += fillFileList(path + name + "\\");
                 }
                 else
                 {
                     qint64 size = (fd.nFileSizeHigh * (MAXDWORD + 1)) + fd.nFileSizeLow;
-                    QString noDrivePath = path;
-                    noDrivePath.replace(noDrivePath.indexOf(devicePath), devicePath.size(), "");
                     fileList.emplace_back(noDrivePath, name, size, 0);
+					filesCounted++;
                 }
             }
         }
         while(FindNextFile(hFind, &fd));
         FindClose(hFind);
     }
+	return filesCounted;
 }
 
 void Combiner::combine(const QString &path)
@@ -54,10 +58,10 @@ void Combiner::combine(const QString &path)
     fileList.clear();
     devicePath = path;
     loadEncryptionKey();
-    fillFileList(devicePath);
+    int filesCount = fillFileList(devicePath);
     if(fileList.empty())
         throw std::runtime_error("No files to encrypt");
-    emit filesCounted(fileList.size());
+	emit filesCounted(filesCount ? filesCount : 1);
 
     currentFileIter = fileList.begin();
 
@@ -68,18 +72,19 @@ void Combiner::combine(const QString &path)
     QByteArray batch;
     currentFile.reset(nullptr);
     QByteArray initVector = algorithm.generateInitVector();
-    try
-    {
-        do
-        {
-            batch = getBatch(batchSize);
-            encryptBatch(batch);
-            containerFile.write(batch);
-        }
-        while(batch.size() == batchSize);
-    }
-    catch(...){throw;}
-
+	if (filesCount > 0)
+	{
+		try
+		{
+			do
+			{
+				batch = getBatch(batchSize);
+				encryptBatch(batch);
+				containerFile.write(batch);
+			} while (batch.size() == batchSize);
+		}
+		catch (...){ throw; }
+	}
     qint64 xmlSize = encryptXml(containerFile);
 
     batch.setNum(xmlSize);
@@ -92,6 +97,9 @@ void Combiner::combine(const QString &path)
 
     containerFile.flush();
     containerFile.close();	
+	removeFolders();
+	if (filesCount == 0)
+		emit fileProcessed();
     emit processingFinished();
 }
 
@@ -111,7 +119,7 @@ void Combiner::separate(const QString &path)
     algorithm.setInitVector(batch);
     algorithm.setupGamma(containerFile.size());
 
-    decryptXmlAndFillFileList(containerFile);
+    int filesCount = decryptXmlAndFillFileList(containerFile);
 	if (containerFile.size() % batchSize)
 	{
 		batch = getBatchFromContainer(containerFile.size() % batchSize, containerFile);
@@ -123,8 +131,13 @@ void Combiner::separate(const QString &path)
     QDir dir(devicePath);
     for(currentFileIter = fileList.begin(); currentFileIter != fileList.end(); currentFileIter++)
     {
-        restoreFile(batch, containerFile, dir);
+		if (currentFileIter->size < 0)
+			dir.mkpath(currentFileIter->path + currentFileIter->name);
+		else
+			restoreFile(batch, containerFile, dir);
     }
+	if (filesCount == 0)
+		emit fileProcessed();
     containerFile.remove();
     algorithm.clearGammaArrays();
     emit processingFinished();
@@ -152,7 +165,7 @@ QByteArray Combiner::getBatch(const int &size)
         currentFile.reset(nullptr);
         removeCurrentFileDir();
 
-        currentFileIter++;
+        nextFile();
         if(currentFileIter != fileList.end())        
         {
             QByteArray temp = getBatch(size - batch.size());
@@ -259,7 +272,7 @@ void Combiner::restoreFile(QByteArray &batch, QFile &containerFile, const QDir &
     currentFile->close();
 }
 
-void Combiner::decryptXmlAndFillFileList(QFile &containerFile)
+int Combiner::decryptXmlAndFillFileList(QFile &containerFile)
 {
     QByteArray batch = getBatchFromContainer(sizeof(quint64), containerFile);
     algorithm.decrypt(batch.data(), batch.size());
@@ -274,9 +287,10 @@ void Combiner::decryptXmlAndFillFileList(QFile &containerFile)
     file.write(batch);
     file.flush();
     XmlSaveLoad xml;
-    xml.loadFileListFromXml(fileList, &file);
+    int filesCount = xml.loadFileListFromXml(fileList, &file);
     file.remove();
-    emit filesCounted(fileList.size());
+	emit filesCounted(filesCount ? filesCount : 1);
+	return filesCount;
 }
 
 void Combiner::loadEncryptionKey()
@@ -289,30 +303,6 @@ void Combiner::loadEncryptionKey()
     algorithm.setKey(baseKey);
     algorithm.simpleDecrypt(key);
     algorithm.setKey(key);
-}
-
-void Combiner::fillEmptySpace(QFile &containerFile, const quint64 deviceSize)
-{
-    quint64 fillingSize = deviceSize - containerFile.size() - 8;
-    quint64 containerSize = containerFile.size();
-    QByteArray filling;
-    for(quint64 s = 0; s < fillingSize; s+= 100 * 1024 * 1024)
-    {
-        containerFile.write(filling);
-    }
-    filling.setNum(containerSize);
-    if(filling.size() < 8) // xml size takes 8 bytes
-        filling.prepend(QByteArray(8 - filling.size(), '0'));
-    algorithm.encrypt(filling.data(), 8);
-    containerFile.write(filling);
-}
-
-void Combiner::removeFilling(QFile &containerFile)
-{
-    containerFile.seek(containerFile.size() - 8);
-    QByteArray containerSize(containerFile.read(8));
-    algorithm.decrypt(containerSize.data(), 8);
-    containerFile.resize(containerSize.toULongLong());
 }
 
 qint64 Combiner::encryptXml(QFile &container)
@@ -340,3 +330,25 @@ qint64 Combiner::encryptXml(QFile &container)
     return fileSize;
 }
 
+void Combiner::nextFile()
+{
+	do
+	{
+		currentFileIter++;
+	} 
+	while (currentFileIter != fileList.end() && currentFileIter->size < 0);
+}
+
+void Combiner::removeFolders()
+{
+	QDir d(devicePath);
+	currentFileIter = fileList.end();	
+	while (currentFileIter != fileList.begin())
+	{
+		currentFileIter--;
+		if (currentFileIter->size < 0)
+		{
+			d.rmpath(currentFileIter->path + currentFileIter->name);
+		}
+	}
+}

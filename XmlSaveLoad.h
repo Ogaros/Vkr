@@ -17,7 +17,7 @@ public:
     XmlSaveLoad();
     ~XmlSaveLoad();
     qint64 saveFileListAsXml(const FileList &fileList, const QString &path) const;
-    void loadFileListFromXml(FileList &fileList, QFile * file) const;
+    int loadFileListFromXml(FileList &fileList, QFile * file) const;
     static const QString getFileName() {return fileName;}
 
 private:

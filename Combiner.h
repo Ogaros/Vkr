@@ -36,7 +36,7 @@ public:
 	static QByteArray getBaseKey() { return baseKey; }
 
 private:
-    void fillFileList(const QString &path);
+    int fillFileList(const QString &path);
     QByteArray getBatch(const int &size);
     QByteArray getBatchFromContainer(const int &size, QFile &containerFile);
     void openCurrentFile();
@@ -44,10 +44,10 @@ private:
     void decryptBatch(QByteArray &batch);
     void removeCurrentFileDir();
     void restoreFile(QByteArray &batch, QFile &containerFile, const QDir &dir);
-    void decryptXmlAndFillFileList(QFile &containerFile);
+    int decryptXmlAndFillFileList(QFile &containerFile);
     void loadEncryptionKey();
-    void fillEmptySpace(QFile &containerFile, const quint64 deviceSize);
-    void removeFilling(QFile &containerFile);
+	void nextFile();
+	void removeFolders();
     qint64 encryptXml(QFile &container);
     Gost algorithm;
     std::unique_ptr<QFile> currentFile;
