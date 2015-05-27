@@ -34,14 +34,16 @@ void ProgressBarDialog::setup(const int &maximum)
     ui->closeButton->setDisabled(true);
     skippedFirstFile = false;
     timer.start(500);
+	elapsedTime.start();
     connect(&timer, SIGNAL(timeout()), this, SLOT(setTitleDots()));
+	connect(&timer, SIGNAL(timeout()), this, SLOT(updateElapsedTime()));
     connect(ui->closeButton, SIGNAL(clicked()), this, SLOT(close()));
     show();
 }
 
 void ProgressBarDialog::finish()
 {
-    timer.stop();
+    timer.stop();		
     type == Encryption ? setWindowTitle("Encryption finished") :
                          setWindowTitle("Decryption finished");
     MessageBeep(MB_OK);
@@ -54,4 +56,10 @@ void ProgressBarDialog::setTitleDots()
     type == Encryption ? setWindowTitle("Encrypting" + QString(dots, '.')) :
                          setWindowTitle("Decrypting" + QString(dots, '.'));
     dots > 2 ? dots = 0 : dots++;
+}
+
+void ProgressBarDialog::updateElapsedTime()
+{	
+	QTime t = QTime(0, 0, 0).addMSecs(elapsedTime.elapsed());
+	ui->elapsedTimeLabel->setText("Elapsed Time: " + t.toString("mm:ss"));
 }

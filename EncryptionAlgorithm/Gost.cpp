@@ -20,7 +20,7 @@ Gost::Gost(QObject *parent) : QObject(parent)
 void Gost::simpleDecrypt(QByteArray &data)
 {
 	if (data.size() % blockSize)
-		data.resize(data.size() + data.size() % blockSize);
+		data.resize(((data.size() / blockSize) + 1) * blockSize);
 	char *p_data = data.data();
 	quint64 block = 0;
 	for (int i = 0; i < data.size(); i += blockSize)
@@ -35,7 +35,7 @@ void Gost::simpleDecrypt(QByteArray &data)
 void Gost::simpleEncrypt(QByteArray &data)
 {
 	if (data.size() % blockSize)
-		data.resize(data.size() + data.size() % blockSize);
+		data.resize(((data.size() / blockSize) + 1) * blockSize);
 	char *p_data = data.data();
 	quint64 block = 0;
 	for (int i = 0; i < data.size(); i += blockSize)
@@ -81,14 +81,7 @@ bool Gost::setInitVector(QByteArray newInitVector)
 inline quint64 Gost::replaceAndRotate(quint32 block) const
 {
 	block = repTableOptimized[0][block >> 24 & 0xFF] << 24 | repTableOptimized[1][block >> 16 & 0xFF] << 16 |
-		repTableOptimized[2][block >> 8 & 0xFF] << 8 | repTableOptimized[3][block & 0xFF];
-	/*
-	quint32 newBlock = 0;
-	for (int i = 0; i < 32; i += 8)
-	{
-	newBlock += replacementTable[i / 8][(block >> i) & 0xF] << i;
-	}
-	return (newBlock << 11) | (newBlock >> 21);*/
+			repTableOptimized[2][block >> 8 & 0xFF] << 8 | repTableOptimized[3][block & 0xFF];
 	return (block << 11) | (block >> 21);
 }
 
@@ -295,7 +288,7 @@ void Gost::setupGamma(qint64 containerSize)
 
 QByteArray Gost::generateInitVector()
 {
-	std::mt19937_64 randGenerator;
+	std::mt19937_64 randGenerator(std::rand());
 	std::uniform_int_distribution<quint64> distribution(0, std::numeric_limits<quint64>::max());
 	gamma = distribution(randGenerator);
 

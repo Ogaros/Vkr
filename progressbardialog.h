@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QTimer>
+#include <QTime>
 #include <windows.h>
 
 namespace Ui {
@@ -25,11 +26,13 @@ public slots:
 
 private slots:
     void setTitleDots();
+	void updateElapsedTime();
 
 private:
     Ui::ProgressBarDialog *ui;
     bool skippedFirstFile;
     QTimer timer;
+	QTime elapsedTime;
     const dialogType type;
 };
 

@@ -56,12 +56,12 @@ int Combiner::fillFileList(const QString &path)
 void Combiner::combine(const QString &path)
 {
     fileList.clear();
-    devicePath = path;
-    loadEncryptionKey();
+    devicePath = path;    
     int filesCount = fillFileList(devicePath);
     if(fileList.empty())
         throw std::runtime_error("No files to encrypt");
 	emit filesCounted(filesCount ? filesCount : 1);
+	loadEncryptionKey();
 
     currentFileIter = fileList.begin();
 
@@ -71,7 +71,12 @@ void Combiner::combine(const QString &path)
 
     QByteArray batch;
     currentFile.reset(nullptr);
-    QByteArray initVector = algorithm.generateInitVector();
+	QByteArray initVector;
+	do
+	{
+		initVector = algorithm.generateInitVector();
+	} while (db.vectorExists(initVector));
+	db.addVector(initVector);
 	if (filesCount > 0)
 	{
 		try
@@ -145,6 +150,7 @@ void Combiner::separate(const QString &path)
 
 QByteArray Combiner::getBatch(const int &size)
 {
+    size +=1;
     QByteArray batch;
     if(currentFile == nullptr)
     {

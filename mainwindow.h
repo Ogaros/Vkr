@@ -17,6 +17,7 @@
 #include <tuple>
 #include <iostream>
 #include <Combiner.h>
+#include <ctime>
 #include <progressbardialog.h>
 #include <EncryptionAlgorithm/Gost.h>
 #include "usbSerialAdapter.h"

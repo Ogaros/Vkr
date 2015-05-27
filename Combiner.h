@@ -20,6 +20,7 @@
 #include <QDebug>
 #include <QByteArray.h>
 #include <QCoreApplication>
+#include <DBManager.h>
 
 using FileList = std::list<FileObject>;
 
@@ -54,6 +55,7 @@ private:
     FileList fileList;
     FileList::iterator currentFileIter;
     QString devicePath;
+	DBManager db;
     static const QString containerName;
     static const int batchSize;
     static const QString keyFileName;

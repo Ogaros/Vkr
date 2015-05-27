@@ -13,6 +13,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->decryptButton, SIGNAL(clicked()), this, SLOT(decrypt()));
     connect(ui->openButton, SIGNAL(clicked()), this, SLOT(openSelectedDir()));
     connect(ui->deviceList, SIGNAL(itemSelectionChanged()), this, SLOT(changeButtonStatus()));
+	std::srand(std::time(nullptr));
 }
 
 MainWindow::~MainWindow()
@@ -49,7 +50,7 @@ std::unique_ptr<std::vector<std::tuple<QString, QString, size_t, size_t>>> MainW
 			dwDrives = dwDrives >> 1;
             path[0]++;
         }
-    pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\TestFolder\\", "Test folder", 0, 0);
+    //pDevices->emplace_back("D:\\Users\\Ogare\\Desktop\\TestFolder\\", "Test folder", 0, 0);
     return pDevices;
 }
 
@@ -151,6 +152,7 @@ void MainWindow::checkUSBSerial()
 	QByteArray serialNumber(usbAdapter::getSerialNumber(dir.absolutePath().at(0).toLatin1()));	
 
 	QFile f("./" + Combiner::getKeyFileName());
+	qDebug() << f.fileName();
 	f.open(QFile::ReadOnly);
 	f.seek(32);
 	QByteArray encryptedSerial(f.readAll());
@@ -166,7 +168,7 @@ void MainWindow::checkUSBSerial()
 	{
 		QMessageBox box;
 		box.setIcon(QMessageBox::Critical);
-		box.setText("You are trying to run this encryptor copy from the wrong usb device");
+		box.setText("You are trying to run this encryptor copy from the wrong usb device"); //\nNeeded key: " + encryptedSerial + "\nDetected key: " + serialNumber);
 		box.setStandardButtons(QMessageBox::Cancel);
 		box.setModal(Qt::ApplicationModal);
 		MessageBeep(MB_OK);
